@@ -14,9 +14,18 @@ it's the same implementation (SentenceTransformersEmbedder).
 from __future__ import annotations
 
 import re
+from typing import TYPE_CHECKING
 
 from src.ingestion.models import Chunk, ChunkMetadata, ParsedDocument
-from src.retrieval.protocols import Embedder
+
+if TYPE_CHECKING:
+    # Type-hint only: ingestion must not runtime-depend on retrieval (it's the
+    # more foundational package — retrieval depends on ingestion, not the
+    # reverse). `from __future__ import annotations` already defers evaluation
+    # of the annotation below, so this import never actually runs — a real
+    # top-level import here creates a circular import via
+    # retrieval.models -> ingestion.models -> ingestion.__init__ -> this file.
+    from src.retrieval.protocols import Embedder
 
 _SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
 

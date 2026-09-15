@@ -7,6 +7,10 @@ Usage:
 Reads only the chunker/embedder/vector_store sections of the experiment
 config; reranker/generator are irrelevant here and ignored. Run `make eval`
 for the full retrieve+rerank+generate+score pipeline instead.
+
+`build_component`/`CHUNKERS`/`collect_chunks` are also reused by
+src/eval/sample_candidates.py, which needs the exact same parse+chunk (no
+embedding/indexing) step to build a pool of chunks to sample from.
 """
 
 from __future__ import annotations
@@ -28,7 +32,7 @@ from src.ingestion import (
 from src.retrieval import QdrantVectorStore, SentenceTransformersEmbedder
 
 # Local to ingestion, deliberately not shared with src/eval/registry.py's
-# registries (see CLAUDE.md: this phase doesn't touch retrieval/generation
+# registries (see CLAUDE.md: Phase 2 didn't touch retrieval/generation
 # wiring) — keep both in sync by hand if a new chunker/embedder/store is added.
 CHUNKERS: dict[str, type] = {
     "fixed_size": FixedSizeChunker,
@@ -40,7 +44,7 @@ EMBEDDERS: dict[str, type] = {"sentence_transformers": SentenceTransformersEmbed
 VECTOR_STORES: dict[str, type] = {"qdrant": QdrantVectorStore}
 
 
-def _build(registry: dict[str, type], config: ComponentConfig, **extra_params: Any) -> Any:
+def build_component(registry: dict[str, type], config: ComponentConfig, **extra_params: Any) -> Any:
     try:
         cls = registry[config.type]
     except KeyError:
@@ -48,20 +52,28 @@ def _build(registry: dict[str, type], config: ComponentConfig, **extra_params: A
     return cls(**{**extra_params, **config.params})
 
 
-def ingest(config: ExperimentConfig) -> int:
-    """Parses+chunks+embeds+indexes every *.pdf under config.raw_data_dir.
-    Returns the number of chunks indexed (prose + table)."""
+def collect_chunks(config: ExperimentConfig) -> list[Chunk]:
+    """Parses and chunks every *.pdf under config.raw_data_dir, prose via the
+    configured Chunker plus every extracted table — with no embedding or
+    indexing. Used both to build the index (ingest, below) and to sample a
+    pool of chunks for eval-set candidate generation."""
     parser = PyMuPDFParser()
-    chunker = _build(CHUNKERS, config.chunker)
-    embedder = _build(EMBEDDERS, config.embedder)
-    vector_store = _build(VECTOR_STORES, config.vector_store, vector_size=embedder.dimension)
+    chunker = build_component(CHUNKERS, config.chunker)
 
-    raw_dir = Path(config.raw_data_dir)
     chunks: list[Chunk] = []
-    for path in sorted(raw_dir.glob("**/*.pdf")):
+    for path in sorted(Path(config.raw_data_dir).glob("**/*.pdf")):
         document = parser.parse(path)
         chunks.extend(chunker.chunk(document))
         chunks.extend(table_to_chunk(t) for t in document.tables)
+    return chunks
+
+
+def ingest(config: ExperimentConfig) -> int:
+    """Parses+chunks+embeds+indexes every *.pdf under config.raw_data_dir.
+    Returns the number of chunks indexed (prose + table)."""
+    chunks = collect_chunks(config)
+    embedder = build_component(EMBEDDERS, config.embedder)
+    vector_store = build_component(VECTOR_STORES, config.vector_store, vector_size=embedder.dimension)
 
     embedded = embedder.embed_chunks(chunks)
     vector_store.upsert(embedded)
