@@ -1,0 +1,37 @@
+# Hybrid experiment: identical to baseline.yaml except the vector store
+# fuses BM25 (sparse, exact-term) with dense similarity, dense_weight=0.5
+# (even split). reranker stays identity — this isolates the retrieval
+# mechanism itself, not reranking, as the single variable vs. baseline.yaml.
+name: hybrid
+
+raw_data_dir: data/raw
+golden_set_path: eval/golden_set.json
+
+chunker:
+  type: fixed_size
+  params:
+    chunk_size: 1000
+    chunk_overlap: 200
+
+embedder:
+  type: sentence_transformers
+  params:
+    model_name: all-MiniLM-L6-v2
+
+vector_store:
+  type: hybrid
+  params:
+    collection_name: hybrid
+    location: ":memory:"   # point at http://localhost:6333 for a real run
+    dense_weight: 0.5      # 0 = pure BM25, 1 = pure dense; configurable fusion weight
+
+reranker:
+  type: identity   # isolate hybrid retrieval itself, not reranking
+
+generator:
+  type: openrouter
+  params:
+    model: openai/gpt-4o-mini   # any model id OpenRouter exposes; swap freely
+
+retrieval_top_k: 5   # matches baseline.yaml's final context size exactly
+rerank_top_k: 5

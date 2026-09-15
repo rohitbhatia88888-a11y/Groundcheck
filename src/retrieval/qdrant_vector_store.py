@@ -53,7 +53,13 @@ class QdrantVectorStore:
         ]
         self._client.upsert(collection_name=self.collection_name, points=points)
 
-    def query(self, query_vector: list[float], top_k: int) -> list[RetrievedChunk]:
+    def query(
+        self, query_vector: list[float], top_k: int, query_text: str | None = None
+    ) -> list[RetrievedChunk]:
+        # query_text is accepted for VectorStore protocol conformance (a
+        # sparse/hybrid store needs it; pure dense search here doesn't) and
+        # deliberately unused.
+        del query_text
         response = self._client.query_points(
             collection_name=self.collection_name, query=query_vector, limit=top_k
         )

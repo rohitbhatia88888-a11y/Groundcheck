@@ -33,11 +33,12 @@ from src.ingestion import (
     SemanticChunker,
     table_to_chunk,
 )
-from src.retrieval import QdrantVectorStore, SentenceTransformersEmbedder
+from src.retrieval import (
+    HybridVectorStore,
+    QdrantVectorStore,
+    SentenceTransformersEmbedder,
+)
 
-# Local to ingestion, deliberately not shared with src/eval/registry.py's
-# registries (see CLAUDE.md: Phase 2 didn't touch retrieval/generation
-# wiring) — keep both in sync by hand if a new chunker/embedder/store is added.
 CHUNKERS: dict[str, type] = {
     "fixed_size": FixedSizeChunker,
     "fixed_token": FixedTokenChunker,
@@ -45,7 +46,7 @@ CHUNKERS: dict[str, type] = {
     "section_aware": SectionAwareChunker,
 }
 EMBEDDERS: dict[str, type] = {"sentence_transformers": SentenceTransformersEmbedder}
-VECTOR_STORES: dict[str, type] = {"qdrant": QdrantVectorStore}
+VECTOR_STORES: dict[str, type] = {"qdrant": QdrantVectorStore, "hybrid": HybridVectorStore}
 
 
 def build_component(registry: dict[str, type], config: ComponentConfig, **extra_params: Any) -> Any:

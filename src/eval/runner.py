@@ -137,7 +137,7 @@ def _evaluate_item(
     start = time.perf_counter()
 
     query_vector = pipeline.embedder.embed_query(item.question)
-    retrieved = pipeline.vector_store.query(query_vector, top_k=pool_size)
+    retrieved = pipeline.vector_store.query(query_vector, top_k=pool_size, query_text=item.question)
     reranked = pipeline.reranker.rerank(item.question, retrieved, top_k=pool_size)
     context = reranked[: config.rerank_top_k]
 

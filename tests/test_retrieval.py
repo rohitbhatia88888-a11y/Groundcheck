@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+from typing import ClassVar
+
+import pytest
+
 from src.ingestion.models import Chunk, ChunkMetadata
 from src.retrieval import (
     CrossEncoderReranker,
     Embedder,
+    HybridVectorStore,
     IdentityReranker,
     QdrantVectorStore,
     Reranker,
@@ -81,3 +86,72 @@ def test_cross_encoder_reranker_reorders_by_true_relevance_not_bi_encoder_score(
 
 def test_cross_encoder_reranker_handles_empty_input():
     assert CrossEncoderReranker().rerank("q", [], top_k=5) == []
+
+
+class TestHybridVectorStore:
+    _CORPUS: ClassVar[list[Chunk]] = [
+        _chunk("c1", "The ZX9942-Regulation requires quarterly audits of financial institutions.", "reg", 1),
+        _chunk("c2", "Bananas are a good source of potassium and fiber.", "food", 1),
+        _chunk("c3", "The stock market fluctuated significantly during the third quarter.", "fin", 1),
+    ]
+
+    def _indexed_store(self, dense_weight: float) -> tuple[HybridVectorStore, SentenceTransformersEmbedder]:
+        embedder = SentenceTransformersEmbedder()
+        store = HybridVectorStore(
+            collection_name=f"hybrid-test-{dense_weight}", vector_size=embedder.dimension,
+            dense_weight=dense_weight,
+        )
+        store.upsert(embedder.embed_chunks(self._CORPUS))
+        return store, embedder
+
+    def test_satisfies_protocol(self):
+        store, _ = self._indexed_store(dense_weight=0.5)
+        assert isinstance(store, VectorStore)
+
+    def test_pure_bm25_finds_exact_term_match(self):
+        # dense_weight=0.0: BM25 only. A made-up identifier like
+        # "ZX9942-Regulation" has no reason to embed distinctively, but BM25
+        # must match it exactly — this is the whole point of hybrid retrieval
+        # (see module docstring: catches what baseline's dense-only retrieval
+        # missed on named-entity/identifier queries in the real eval).
+        store, embedder = self._indexed_store(dense_weight=0.0)
+        query = "What does the ZX9942-Regulation require?"
+
+        results = store.query(embedder.embed_query(query), top_k=3, query_text=query)
+
+        assert results[0].chunk_id == "c1"
+        assert results[0].score > 0
+
+    def test_pure_dense_matches_plain_qdrant_ranking(self):
+        # dense_weight=1.0 should rank identically to a bare QdrantVectorStore
+        # over the same corpus/query — an invariant that doesn't depend on
+        # guessing what the embedding model "should" consider similar.
+        embedder = SentenceTransformersEmbedder()
+        query = "What does the ZX9942-Regulation require?"
+        query_vector = embedder.embed_query(query)
+
+        plain_store = QdrantVectorStore(collection_name="plain-compare", vector_size=embedder.dimension)
+        plain_store.upsert(embedder.embed_chunks(self._CORPUS))
+        plain_order = [r.chunk_id for r in plain_store.query(query_vector, top_k=3)]
+
+        hybrid_store = HybridVectorStore(
+            collection_name="hybrid-compare", vector_size=embedder.dimension, dense_weight=1.0
+        )
+        hybrid_store.upsert(embedder.embed_chunks(self._CORPUS))
+        hybrid_order = [r.chunk_id for r in hybrid_store.query(query_vector, top_k=3, query_text=query)]
+
+        assert hybrid_order == plain_order
+
+    def test_requires_query_text(self):
+        store, embedder = self._indexed_store(dense_weight=0.5)
+        with pytest.raises(ValueError):
+            store.query(embedder.embed_query("anything"), top_k=3, query_text=None)
+
+    def test_empty_store_returns_empty(self):
+        embedder = SentenceTransformersEmbedder()
+        store = HybridVectorStore(collection_name="empty-hybrid", vector_size=embedder.dimension)
+        assert store.query(embedder.embed_query("q"), top_k=3, query_text="q") == []
+
+    def test_rejects_dense_weight_out_of_range(self):
+        with pytest.raises(ValueError):
+            HybridVectorStore(collection_name="bad", vector_size=384, dense_weight=1.5)

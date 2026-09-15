@@ -24,11 +24,20 @@ class Embedder(Protocol):
 
 @runtime_checkable
 class VectorStore(Protocol):
-    """Persists embedded chunks and returns the top-k nearest to a query vector."""
+    """Persists embedded chunks and returns the top-k nearest to a query.
+
+    `query_text` is optional and most implementations ignore it (pure dense
+    search only needs the vector) — but a sparse/hybrid store (e.g.
+    HybridVectorStore) needs the raw text too, for BM25. Every implementation
+    must accept the parameter even if unused, so callers can pass it
+    uniformly without knowing which store they're talking to.
+    """
 
     def upsert(self, chunks: list[EmbeddedChunk]) -> None: ...
 
-    def query(self, query_vector: list[float], top_k: int) -> list[RetrievedChunk]: ...
+    def query(
+        self, query_vector: list[float], top_k: int, query_text: str | None = None
+    ) -> list[RetrievedChunk]: ...
 
 
 @runtime_checkable
