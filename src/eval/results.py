@@ -43,6 +43,7 @@ class QuestionResult(BaseModel):
     answer_text: str
     citations: list[Citation]
     unsupported_citation_markers: list[str]
+    citation_validity_rate: float | None  # None if the answer cited nothing at all
     model_used: str
 
     faithfulness: float
@@ -82,6 +83,7 @@ class ExperimentResult(BaseModel):
 
     faithfulness: float
     answer_relevance: float
+    citation_validity_rate: float | None  # pooled across every citation marker in the run
 
     num_unanswerable: int
     refusal_accuracy: float | None

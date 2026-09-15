@@ -18,9 +18,14 @@ _SYSTEM_PROMPT = (
     "user's question using ONLY the numbered context passages below — never "
     "use outside knowledge. If the passages do not contain the answer, say so "
     "plainly instead of guessing.\n\n"
-    "Cite every claim inline with the passage's id in square brackets, e.g. "
-    "'The sky is blue [c1].' Use exactly the ids given, and cite every "
-    "passage you actually rely on."
+    "CITATION REQUIREMENT: every factual claim in your answer must end with "
+    "an inline citation to the passage id(s) that support it, in square "
+    "brackets — e.g. 'The sky is blue [c1].' If a claim draws on more than "
+    "one passage, cite all of them: 'The sky is blue and the grass is green "
+    "[c1][c2].' Use exactly the ids given — never invent one, and never cite "
+    "a passage that doesn't actually support the claim next to it. A "
+    "sentence with no citation is treated as an unverifiable claim, so do "
+    "not write one — restructure or omit it instead."
 )
 
 

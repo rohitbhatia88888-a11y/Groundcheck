@@ -1,12 +1,13 @@
-"""LLM-as-judge generation metrics: faithfulness, answer relevancy, and
-refusal correctness (for unanswerable questions — see src/eval/behaviour_metrics.py
-for the aggregate "behaviour" number this feeds).
+"""Generation-quality metrics: LLM-as-judge (faithfulness, answer relevancy,
+refusal correctness for unanswerable questions — see
+src/eval/behaviour_metrics.py for the aggregate "behaviour" number refusal
+judgments feed) plus one purely programmatic metric, citation_validity_rate.
 
-Judges via a forced tool call so scores are always well-formed, not free text
-to parse. Kept in a separate module from retrieval_metrics.py by design — see
-CLAUDE.md: retrieval and generation metrics are computed and reported
-separately, never blended into one score. temperature=0 throughout for
-determinism where the provider honors it.
+Judge calls use a forced tool call so scores are always well-formed, not
+free text to parse. Kept in a separate module from retrieval_metrics.py by
+design — see CLAUDE.md: retrieval and generation metrics are computed and
+reported separately, never blended into one score. temperature=0 throughout
+for determinism where the provider honors it.
 """
 
 from __future__ import annotations
@@ -16,7 +17,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from src.generation.models import Answer
+from src.generation.models import Answer, Citation
 from src.generation.openrouter_client import get_openrouter_client
 
 _SCORE_TOOL = {
@@ -74,6 +75,22 @@ _REFUSAL_PROMPT = (
     "isn't available, rather than confidently answering (even a hedged or "
     "partial answer counts as NOT refusing). refused=false otherwise."
 )
+
+
+def citation_validity_rate(citations: list[Citation], unsupported_markers: list[str]) -> float | None:
+    """Fraction of an answer's citation markers that actually reference a
+    chunk shown to the generator — verified programmatically (see
+    extract_citations, src/generation/openrouter_generator.py), not an LLM
+    judgment: `citations` only ever contains markers already confirmed
+    against the real context, `unsupported_markers` the ones that weren't.
+
+    None (not 0.0 or 1.0) if the answer has no citation markers at all —
+    nothing to validate, not "0% valid."
+    """
+    total = len(citations) + len(unsupported_markers)
+    if total == 0:
+        return None
+    return len(citations) / total
 
 
 class JudgeScore(BaseModel):

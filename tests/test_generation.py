@@ -4,7 +4,14 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-from src.generation import Answer, Generator, OpenRouterGenerator, extract_citations
+from src.eval.generation_metrics import citation_validity_rate
+from src.generation import (
+    Answer,
+    Citation,
+    Generator,
+    OpenRouterGenerator,
+    extract_citations,
+)
 from src.ingestion.models import ChunkMetadata
 from src.retrieval.models import RetrievedChunk
 
@@ -34,6 +41,14 @@ def test_extract_citations_dedupes_valid_and_flags_hallucinated():
 
     assert [c.chunk_id for c in citations] == ["c1"]
     assert unsupported == ["c99"]
+
+
+def test_citation_validity_rate():
+    valid = [Citation(chunk_id="c1", doc_id="bio", page=1)]
+    assert citation_validity_rate(valid, []) == 1.0
+    assert citation_validity_rate([], ["c99"]) == 0.0
+    assert citation_validity_rate(valid, ["c99"]) == 0.5
+    assert citation_validity_rate([], []) is None  # nothing cited -> nothing to validate
 
 
 def test_openrouter_generator_builds_answer_from_mocked_response(monkeypatch):

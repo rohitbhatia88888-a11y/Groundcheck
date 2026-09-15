@@ -37,6 +37,7 @@ def _format_result(result) -> str:
         f"  MRR={num(result.mrr)}",
         "GENERATION",
         f"  faithfulness={result.faithfulness:.3f}  answer_relevance={result.answer_relevance:.3f}",
+        f"  citation_validity_rate={pct(result.citation_validity_rate)}",
         "BEHAVIOUR",
         f"  refusal_accuracy={pct(result.refusal_accuracy)}  ({result.num_unanswerable} unanswerable question(s))",
         "OPS",

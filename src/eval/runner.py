@@ -2,9 +2,9 @@
 writes two things:
 
 - results/experiments.csv: one aggregate row for THIS run (recall@1/3/5/10,
-  MRR, faithfulness, answer relevance, refusal accuracy, p50/p95 latency,
-  cost per query) — appended to, never rewritten, so configs stay comparable
-  over time.
+  MRR, faithfulness, answer relevance, citation validity rate, refusal
+  accuracy, p50/p95 latency, cost per query) — appended to, never rewritten,
+  so configs stay comparable over time.
 - results/runs/<config_name>_<timestamp>.jsonl: one row per golden-set
   question with full detail (retrieved chunks, generated text, every
   judge's reasoning, latency, cost), for inspecting individual failures.
@@ -29,7 +29,7 @@ from pathlib import Path
 
 from src.eval.behaviour_metrics import refusal_accuracy
 from src.eval.config import ExperimentConfig
-from src.eval.generation_metrics import OpenRouterJudge
+from src.eval.generation_metrics import OpenRouterJudge, citation_validity_rate
 from src.eval.golden_set import GoldenSet, GoldenSetItem, verify_golden_set_hash
 from src.eval.ops_metrics import mean_cost_usd, percentile
 from src.eval.registry import Pipeline, build_pipeline
@@ -172,6 +172,9 @@ def _evaluate_item(
         answer_text=answer.text,
         citations=answer.citations,
         unsupported_citation_markers=answer.unsupported_citation_markers,
+        citation_validity_rate=citation_validity_rate(
+            answer.citations, answer.unsupported_citation_markers
+        ),
         model_used=answer.model_used,
         faithfulness=faithfulness.score,
         faithfulness_reasoning=faithfulness.reasoning,
@@ -224,6 +227,13 @@ def _aggregate(
         mrr=_mean_or_none([r.mrr for r in retrieval_eligible]),
         faithfulness=_mean([r.faithfulness for r in results]),
         answer_relevance=_mean([r.answer_relevance for r in results]),
+        # Pooled across every citation marker in the run (raw counts, not an
+        # average of per-question rates) — a question with 10 citations
+        # shouldn't count the same as one with 1 in the overall rate.
+        citation_validity_rate=citation_validity_rate(
+            [c for r in results for c in r.citations],
+            [m for r in results for m in r.unsupported_citation_markers],
+        ),
         num_unanswerable=len(unanswerable_refusals),
         refusal_accuracy=refusal_accuracy(unanswerable_refusals),
         latency_p50_seconds=percentile([r.latency_seconds for r in results], 0.50),

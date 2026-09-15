@@ -122,6 +122,7 @@ class TestRunExperiment:
         assert result.refusal_accuracy == 1.0
         assert result.faithfulness == pytest.approx(0.9)
         assert result.answer_relevance == pytest.approx(0.9)
+        assert result.citation_validity_rate == 1.0  # pooled: 1 valid, 0 unsupported, across both questions
         assert result.cost_per_query_usd == pytest.approx(0.00042)
         assert result.latency_p50_seconds >= 0
         assert result.chunker_type == "fixed_size"
@@ -139,6 +140,8 @@ class TestRunExperiment:
         assert by_id["q1"]["recall_at_k"]["1"] == 1.0
         assert by_id["q1"]["has_relevant_chunks"] is True
         assert by_id["q1"]["refused"] is None  # not applicable to a simple question
+        assert by_id["q1"]["citation_validity_rate"] == 1.0  # cited [bio-p1-c0], a real chunk
+        assert by_id["q2"]["citation_validity_rate"] is None  # declined to answer, cited nothing
         assert by_id["q2"]["has_relevant_chunks"] is False
         assert by_id["q2"]["refused"] is True
         assert by_id["q2"]["refusal_reasoning"] == "declines correctly"
