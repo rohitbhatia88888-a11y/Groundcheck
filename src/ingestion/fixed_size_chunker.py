@@ -7,6 +7,7 @@ on that protocol, not on this class directly.
 
 from __future__ import annotations
 
+from src.ingestion._windowing import sliding_windows, validate_window_params
 from src.ingestion.models import Chunk, ChunkMetadata, ParsedDocument
 
 
@@ -18,20 +19,11 @@ class FixedSizeChunker:
     """
 
     def __init__(self, chunk_size: int = 1000, chunk_overlap: int = 200) -> None:
-        if chunk_size <= 0:
-            raise ValueError(f"chunk_size must be positive, got {chunk_size}")
-        if chunk_overlap < 0:
-            raise ValueError(f"chunk_overlap must be >= 0, got {chunk_overlap}")
-        if chunk_overlap >= chunk_size:
-            raise ValueError(
-                f"chunk_overlap ({chunk_overlap}) must be smaller than "
-                f"chunk_size ({chunk_size})"
-            )
+        validate_window_params(chunk_size, chunk_overlap)
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
 
     def chunk(self, document: ParsedDocument) -> list[Chunk]:
-        stride = self.chunk_size - self.chunk_overlap
         chunks: list[Chunk] = []
 
         for page in document.pages:
@@ -39,14 +31,13 @@ class FixedSizeChunker:
             if not text:
                 continue
 
-            index = 0
-            start = 0
-            while start < len(text):
-                window = text[start : start + self.chunk_size]
+            for index, (start, end) in enumerate(
+                sliding_windows(len(text), self.chunk_size, self.chunk_overlap)
+            ):
                 chunks.append(
                     Chunk(
                         chunk_id=f"{document.doc_id}-p{page.page_number}-c{index}",
-                        text=window,
+                        text=text[start:end],
                         metadata=ChunkMetadata(
                             doc_id=document.doc_id,
                             page=page.page_number,
@@ -55,7 +46,5 @@ class FixedSizeChunker:
                         ),
                     )
                 )
-                index += 1
-                start += stride
 
         return chunks
