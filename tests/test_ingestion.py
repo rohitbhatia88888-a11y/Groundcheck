@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pymupdf
 import pytest
 
 from src.ingestion import Chunker, DocumentParser, FixedSizeChunker, PyMuPDFParser
@@ -70,3 +71,40 @@ def test_parser_extracts_table_separately_from_prose(structured_pdf):
     # table cell text must not leak into the page's prose text
     assert "Metric" not in parsed.pages[0].text
     assert "Accuracy" not in parsed.pages[0].text
+
+
+def test_parser_detects_bold_same_size_headings(tmp_path):
+    # Regression test: found against a real 192-page EUR-Lex regulation PDF,
+    # whose chapter/article titles are bold at body text size, not a larger
+    # size — the size-only heuristic missed every single one of them (0 of
+    # ~500 headings detected) until bold-whole-line was added as a second
+    # signal (see _is_heading_line in pymupdf_parser.py).
+    doc = pymupdf.open()
+    page = doc.new_page()
+    page.insert_text((72, 90), "Article 1", fontsize=11, fontname="Times-Roman")
+    page.insert_text((72, 110), "Subject matter", fontsize=11, fontname="Times-Bold")
+    page.insert_text((72, 130), "This Regulation lays down harmonised rules.",
+                      fontsize=11, fontname="Times-Roman")
+    path = tmp_path / "bold_heading.pdf"
+    doc.save(path)
+    doc.close()
+
+    parsed = PyMuPDFParser().parse(path)
+
+    # "Article 1" itself is neither bold nor larger, so it isn't detected —
+    # only its bold title is. That's the real document's actual structure.
+    assert [h.text for h in parsed.pages[0].headings] == ["Subject matter"]
+
+
+def test_parser_does_not_misdetect_dense_prose_as_a_table(make_pdf):
+    # Regression test for the same real-world document: the default
+    # find_tables() strategy ("lines") misdetected dense justified prose
+    # with no visible grid as a single-column table on ~99% of pages,
+    # silently stripping real content out of ParsedPage.text. lines_strict
+    # requires actual ruling lines, so ordinary wrapped prose must never
+    # register as a table.
+    pdf_path = make_pdf("dense.pdf", ["Lorem ipsum dolor sit amet, consectetur adipiscing elit. " * 30])
+    parsed = PyMuPDFParser().parse(pdf_path)
+
+    assert parsed.tables == []
+    assert len(parsed.pages[0].text) > 500  # content survived, wasn't excluded as a "table"

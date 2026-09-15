@@ -4,9 +4,17 @@ detected section headings) and tables, separately, from PDF files.
 Heading detection is a font-size heuristic: any text line whose font size is
 notably larger than the document's body-text size (the median span size
 across the whole document) counts as a heading. Table regions are detected
-first (pymupdf's built-in page.find_tables()) and excluded from prose
-extraction, so a table's cell text never leaks into ParsedPage.text and its
-values never get mistaken for headings.
+first (pymupdf's built-in page.find_tables(), strategy="lines_strict" —
+requires actual visible ruling lines) and excluded from prose extraction, so
+a table's cell text never leaks into ParsedPage.text and its values never
+get mistaken for headings.
+
+strategy="lines_strict" is deliberate, not the default: the default
+("lines") strategy false-positives badly on dense justified prose with no
+visible grid at all — confirmed against a real 192-page EUR-Lex regulation
+PDF, where it misdetected ~99% of pages as single-column "tables" and would
+have stripped nearly all article text out of prose. lines_strict correctly
+rejects that case while still detecting a genuinely bordered table.
 
 Satisfies the DocumentParser protocol (src/ingestion/protocols.py); callers
 should depend on that protocol, not on this class directly.
@@ -21,8 +29,11 @@ import pymupdf
 from src.ingestion.models import ExtractedTable, Heading, ParsedDocument, ParsedPage
 
 _HEADING_SIZE_RATIO = 1.15  # a line at >=15% larger than body text counts as a heading
+_HEADING_BOLD_MAX_CHARS = 150  # a whole-line-bold heading is short; longer bold runs
+# are more likely emphasis inside a paragraph than a standalone heading
 _DEFAULT_BODY_SIZE = 11.0  # fallback when a document has no extractable text at all
 _TABLE_OVERLAP_THRESHOLD = 0.5  # a text block >=50% inside a table's bbox is table content
+_BOLD_FLAG = 1 << 4  # PyMuPDF span flags bit 4
 
 
 def _median(values: list[float]) -> float:
@@ -64,6 +75,23 @@ def _is_table_block(block_bbox: tuple[float, float, float, float], table_bboxes:
     )
 
 
+def _is_bold_span(span: dict) -> bool:
+    # Flag bit isn't always set reliably by every PDF producer; the font name
+    # (e.g. "TimesNewRomanPS-BoldMT") is a redundant, often more reliable signal.
+    return bool(span["flags"] & _BOLD_FLAG) or "bold" in span.get("font", "").lower()
+
+
+def _is_heading_line(spans: list[dict], line_text: str, body_size: float) -> bool:
+    """A heading is either notably larger than body text, or a short line
+    that's bold all the way through — many real documents (this one
+    included: EUR-Lex regulations style chapter/article titles as bold at
+    body size, not a larger size) signal headings with weight, not size."""
+    max_size = max((s["size"] for s in spans), default=body_size)
+    if max_size >= body_size * _HEADING_SIZE_RATIO:
+        return True
+    return len(line_text) <= _HEADING_BOLD_MAX_CHARS and all(_is_bold_span(s) for s in spans)
+
+
 class PyMuPDFParser:
     """Parses a PDF into a ParsedDocument: prose pages (with headings) plus
     tables, extracted separately."""
@@ -85,7 +113,7 @@ class PyMuPDFParser:
                 page_number = page_index + 1
                 section_at_start = current_section  # inherited, before this page's own headings
 
-                found_tables = page.find_tables()
+                found_tables = page.find_tables(strategy="lines_strict")
                 table_bboxes = [pymupdf.Rect(t.bbox) for t in found_tables.tables]
                 for table_index, table in enumerate(found_tables.tables):
                     tables.append(
@@ -109,12 +137,12 @@ class PyMuPDFParser:
                         continue  # this text belongs to a table, handled above instead
 
                     for line in block["lines"]:
-                        line_text = "".join(span["text"] for span in line["spans"]).strip()
-                        if not line_text:
+                        spans = [s for s in line["spans"] if s["text"].strip()]
+                        if not spans:
                             continue
+                        line_text = "".join(s["text"] for s in spans).strip()
 
-                        max_size = max((span["size"] for span in line["spans"]), default=body_size)
-                        if max_size >= body_size * _HEADING_SIZE_RATIO:
+                        if _is_heading_line(spans, line_text, body_size):
                             headings.append(Heading(text=line_text, char_offset=offset))
                             current_section = line_text
 
