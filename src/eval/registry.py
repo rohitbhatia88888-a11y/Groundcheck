@@ -17,9 +17,18 @@ from src.eval.config import ExperimentConfig
 from src.generation import Generator, OpenRouterGenerator
 from src.ingestion import Chunker
 from src.ingestion.run import CHUNKERS, EMBEDDERS, VECTOR_STORES, build_component
-from src.retrieval import Embedder, IdentityReranker, Reranker, VectorStore
+from src.retrieval import (
+    CrossEncoderReranker,
+    Embedder,
+    IdentityReranker,
+    Reranker,
+    VectorStore,
+)
 
-RERANKERS: dict[str, type[Reranker]] = {"identity": IdentityReranker}
+RERANKERS: dict[str, type[Reranker]] = {
+    "identity": IdentityReranker,
+    "cross_encoder": CrossEncoderReranker,
+}
 GENERATORS: dict[str, type[Generator]] = {"openrouter": OpenRouterGenerator}
 
 
