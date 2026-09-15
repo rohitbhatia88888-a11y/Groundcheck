@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Data (raw/processed are pipeline outputs, not source — see CLAUDE.md)
+data/raw/*
+data/processed/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+
+# Experiment outputs
+results/*
+!results/.gitkeep
+
+# Qdrant local storage
+qdrant_storage/
+
+# OS
+.DS_Store
