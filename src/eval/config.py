@@ -22,10 +22,14 @@ class ComponentConfig(BaseModel):
 
 
 class ExperimentConfig(BaseModel):
+    """Output paths are NOT configurable here — src/eval/runner.py writes to
+    the fixed conventions results/experiments.csv (one row per run) and
+    results/runs/<name>_<timestamp>.jsonl (per-question detail), so results
+    across different configs always land somewhere comparable."""
+
     name: str
     raw_data_dir: str = "data/raw"
     golden_set_path: str = "eval/golden_set.json"
-    results_path: str | None = None  # defaults to results/<name>.csv
 
     chunker: ComponentConfig
     embedder: ComponentConfig

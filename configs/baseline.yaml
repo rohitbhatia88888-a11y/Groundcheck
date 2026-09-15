@@ -1,10 +1,10 @@
-# Baseline experiment: the simplest fully-wired pipeline, used as a reference
-# point for every later chunking/embedding/reranking variant to beat.
+# Baseline experiment: fixed-size chunks, dense retrieval, top-5, no
+# reranking, a plain citation-enforcing prompt. The reference point every
+# later chunking/embedding/reranking variant has to beat.
 name: baseline
 
 raw_data_dir: data/raw
 golden_set_path: eval/golden_set.json
-results_path: results/baseline.csv
 
 chunker:
   type: fixed_size
@@ -24,12 +24,15 @@ vector_store:
     location: ":memory:"   # point at http://localhost:6333 for a real run
 
 reranker:
-  type: identity
+  type: identity   # dense retrieval order stands as-is, nothing reordered
 
 generator:
   type: openrouter
   params:
     model: openai/gpt-4o-mini   # any model id OpenRouter exposes; swap freely
 
-retrieval_top_k: 10
-rerank_top_k: 5
+retrieval_top_k: 5
+rerank_top_k: 5   # top-5 chunks reach the generator; recall@10 is still
+                  # measured regardless (src/eval/runner.py retrieves a
+                  # larger pool internally for metrics, this only controls
+                  # generation context)
