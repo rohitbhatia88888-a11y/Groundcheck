@@ -1,0 +1,220 @@
+{
+  "items": [
+    {
+      "id": "cand-eu-ai-act-2024-1689-p92-c0",
+      "question": "What must distributors verify before making a high-risk AI system available on the market?",
+      "relevant_chunks": [
+        {
+          "doc_id": "eu-ai-act-2024-1689",
+          "page": 92
+        }
+      ],
+      "expected_answer": "Distributors must verify that the high-risk AI system bears the required CE marking, is accompanied by a copy of the EU declaration of conformity, includes instructions for use, and that the provider and importer have complied with their respective obligations.",
+      "question_type": "simple"
+    },
+    {
+      "id": "cand-eu-ai-act-2024-1689-p43-c3",
+      "question": "What should providers ensure regarding cybersecurity protection for the model and its infrastructure?",
+      "relevant_chunks": [
+        {
+          "doc_id": "eu-ai-act-2024-1689",
+          "page": 43
+        }
+      ],
+      "expected_answer": "Providers should ensure an adequate level of cybersecurity protection for the model and its physical infrastructure along the entire model lifecycle, considering risks like accidental model leakage, unauthorized releases, circumvention of safety measures, and defense against cyberattacks, unauthorized access, or model theft.",
+      "question_type": "simple"
+    },
+    {
+      "id": "cand-eu-ai-act-2024-1689-p182-c1",
+      "question": "What must the provider include in the submission to the notified body?",
+      "relevant_chunks": [
+        {
+          "doc_id": "eu-ai-act-2024-1689",
+          "page": 182
+        }
+      ],
+      "expected_answer": "The provider must include the name and address of the provider, a written declaration that the same application has not been lodged with any other notified body, and the technical documentation referred to in Annex IV.",
+      "question_type": "simple"
+    },
+    {
+      "id": "cand-eu-ai-act-2024-1689-p15-c2",
+      "question": "What must be obtained before using a 'real-time' remote biometric identification system in publicly accessible spaces for law enforcement purposes?",
+      "relevant_chunks": [
+        {
+          "doc_id": "eu-ai-act-2024-1689",
+          "page": 15
+        }
+      ],
+      "expected_answer": "An express and specific authorisation by a judicial authority or by an independent administrative authority of a Member State.",
+      "question_type": "simple"
+    },
+    {
+      "id": "cand-eu-ai-act-2024-1689-p77-c1",
+      "question": "What are the conditions under which the Commission can amend Annex III regarding high-risk AI systems?",
+      "relevant_chunks": [
+        {
+          "doc_id": "eu-ai-act-2024-1689",
+          "page": 77
+        }
+      ],
+      "expected_answer": "The Commission can amend Annex III by adding or modifying use-cases of high-risk AI systems if the AI systems are intended to be used in any of the areas listed in Annex III and if the AI systems pose a risk of harm to health and safety.",
+      "question_type": "simple"
+    },
+    {
+      "id": "cand-eu-ai-act-2024-1689-p74-c1",
+      "question": "What purposes shall the remote biometric identification systems be deployed for according to paragraph 1, first subparagraph, point (h)?",
+      "relevant_chunks": [
+        {
+          "doc_id": "eu-ai-act-2024-1689",
+          "page": 74
+        }
+      ],
+      "expected_answer": "The remote biometric identification systems shall be deployed for the purposes of confirming the identity of the specifically targeted individual.",
+      "question_type": "simple"
+    },
+    {
+      "id": "cand-eu-ai-act-2024-1689-p103-c3",
+      "question": "What action does the Commission take if a notified body does not meet the requirements for its notification?",
+      "relevant_chunks": [
+        {
+          "doc_id": "eu-ai-act-2024-1689",
+          "page": 103
+        }
+      ],
+      "expected_answer": "The Commission informs the notifying Member State and requests it to take necessary corrective measures, which may include the suspension or withdrawal of the notification.",
+      "question_type": "simple"
+    },
+    {
+      "id": "cand-eu-ai-act-2024-1689-p52-c0",
+      "question": "What must providers and prospective providers in the AI regulatory sandbox do to mitigate significant risks?",
+      "relevant_chunks": [
+        {
+          "doc_id": "eu-ai-act-2024-1689",
+          "page": 52
+        }
+      ],
+      "expected_answer": "Providers and prospective providers in the AI regulatory sandbox must ensure appropriate safeguards, cooperate with competent authorities, follow their guidance, and act expeditiously and in good faith to adequately mitigate any identified significant risks to safety, health, and fundamental rights.",
+      "question_type": "simple"
+    },
+    {
+      "id": "cand-eu-ai-act-2024-1689-p191-c2",
+      "question": "What are the two aspects included in the process for the development of the general-purpose AI model?",
+      "relevant_chunks": [
+        {
+          "doc_id": "eu-ai-act-2024-1689",
+          "page": 191
+        }
+      ],
+      "expected_answer": "The two aspects included in the process for the development of the general-purpose AI model are: (a) the technical means required for integration into AI systems, and (b) the modality and format of the inputs and outputs.",
+      "question_type": "simple"
+    },
+    {
+      "id": "cand-eu-ai-act-2024-1689-p144-c4",
+      "question": "What can the Commission and Member States do with confidential information according to the passage?",
+      "relevant_chunks": [
+        {
+          "doc_id": "eu-ai-act-2024-1689",
+          "page": 144
+        }
+      ],
+      "expected_answer": "The Commission and Member States may exchange confidential information with regulatory authorities of third countries with which they have concluded bilateral or international agreements, where necessary and in accordance with relevant provisions.",
+      "question_type": "simple"
+    },
+    {
+      "id": "cand-eu-ai-act-2024-1689-p85-c3",
+      "question": "What must be declared in the accompanying instructions of use for high-risk AI systems?",
+      "relevant_chunks": [
+        {
+          "doc_id": "eu-ai-act-2024-1689",
+          "page": 85
+        }
+      ],
+      "expected_answer": "The levels of accuracy and the relevant accuracy metrics of high-risk AI systems shall be declared in the accompanying instructions of use.",
+      "question_type": "simple"
+    },
+    {
+      "id": "cand-eu-ai-act-2024-1689-p108-c0",
+      "question": "What must a manufacturer do to opt out from a third-party conformity assessment for their product under the regulation?",
+      "relevant_chunks": [
+        {
+          "doc_id": "eu-ai-act-2024-1689",
+          "page": 108
+        }
+      ],
+      "expected_answer": "A manufacturer must apply all harmonised standards covering all relevant requirements and also apply harmonised standards or, where applicable, common specifications referred to in Article 41, covering all requirements set out in Section 2 of the Chapter.",
+      "question_type": "simple"
+    },
+    {
+      "id": "cand-eu-ai-act-2024-1689-p29-c2",
+      "question": "What is essential for the traceability of high-risk AI systems according to Regulation (EU) 2018/1725?",
+      "relevant_chunks": [
+        {
+          "doc_id": "eu-ai-act-2024-1689",
+          "page": 29
+        }
+      ],
+      "expected_answer": "Having comprehensible information on how high-risk AI systems have been developed and how they perform throughout their lifetime is essential for the traceability of those systems.",
+      "question_type": "simple"
+    },
+    {
+      "id": "cand-eu-ai-act-2024-1689-p127-c0",
+      "question": "What must a provider or prospective provider of high-risk AI systems do before testing in real-world conditions according to Article 49?",
+      "relevant_chunks": [
+        {
+          "doc_id": "eu-ai-act-2024-1689",
+          "page": 127
+        }
+      ],
+      "expected_answer": "The provider or prospective provider must register the testing in real-world conditions in the secure non-public section of the EU database and ensure they are established in the Union or have appointed a legal representative who is established in the Union.",
+      "question_type": "simple"
+    },
+    {
+      "id": "cand-eu-ai-act-2024-1689-p41-c1",
+      "question": "What are some systemic risks posed by general-purpose AI models?",
+      "relevant_chunks": [
+        {
+          "doc_id": "eu-ai-act-2024-1689",
+          "page": 41
+        }
+      ],
+      "expected_answer": "Systemic risks posed by general-purpose AI models include major accidents, disruptions of critical sectors, serious consequences to public health and safety, negative effects on democratic processes, public and economic security, and the dissemination of illegal, false, or discriminatory content.",
+      "question_type": "simple"
+    },
+    {
+      "id": "cand-eu-ai-act-2024-1689-p176-c1",
+      "question": "What are some intended uses of AI systems in relation to law enforcement and emergency services?",
+      "relevant_chunks": [
+        {
+          "doc_id": "eu-ai-act-2024-1689",
+          "page": 176
+        }
+      ],
+      "expected_answer": "AI systems are intended to evaluate and classify emergency calls, dispatch emergency first response services, assess the risk of a natural person becoming the victim of criminal offences, and be used in risk assessment and pricing for life and health insurance.",
+      "question_type": "simple"
+    },
+    {
+      "id": "cand-eu-ai-act-2024-1689-p130-c1",
+      "question": "What is the purpose of the AI Office according to the passage?",
+      "relevant_chunks": [
+        {
+          "doc_id": "eu-ai-act-2024-1689",
+          "page": 130
+        }
+      ],
+      "expected_answer": "The purpose of the AI Office is to develop Union expertise and capabilities in the field of AI.",
+      "question_type": "simple"
+    },
+    {
+      "id": "cand-eu-ai-act-2024-1689-p189-c1",
+      "question": "What is the purpose of Regulation (EU) 2019/816?",
+      "relevant_chunks": [
+        {
+          "doc_id": "eu-ai-act-2024-1689",
+          "page": 189
+        }
+      ],
+      "expected_answer": "Regulation (EU) 2019/816 establishes a centralised system for the identification of Member States holding conviction information on third-country nationals and stateless persons (ECRIS-TCN) to supplement the European Criminal Records Information System.",
+      "question_type": "simple"
+    }
+  ]
+}
