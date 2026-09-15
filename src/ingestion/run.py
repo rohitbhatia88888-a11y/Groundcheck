@@ -8,9 +8,13 @@ Reads only the chunker/embedder/vector_store sections of the experiment
 config; reranker/generator are irrelevant here and ignored. Run `make eval`
 for the full retrieve+rerank+generate+score pipeline instead.
 
-`build_component`/`CHUNKERS`/`collect_chunks` are also reused by
-src/eval/sample_candidates.py, which needs the exact same parse+chunk (no
-embedding/indexing) step to build a pool of chunks to sample from.
+This module's CHUNKERS/EMBEDDERS/VECTOR_STORES/build_component are the
+single source of truth for those three registries — src/eval/registry.py
+imports them directly rather than duplicating the dict, so a config can
+select any chunker for a full eval run, not just for standalone ingestion.
+collect_chunks() is also reused by src/eval/sample_candidates.py, which needs
+the exact same parse+chunk (no embedding/indexing) step to build a pool of
+chunks to sample from.
 """
 
 from __future__ import annotations
