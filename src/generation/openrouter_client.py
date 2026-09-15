@@ -28,3 +28,25 @@ def get_openrouter_client() -> OpenAI:
             "— see .env.example."
         )
     return OpenAI(api_key=api_key, base_url=OPENROUTER_BASE_URL)
+
+
+def extract_cost_usd(response) -> float | None:
+    """Pulls the per-request USD cost OpenRouter reports when a call passes
+    `extra_body={"usage": {"include": True}}` — this isn't part of the
+    standard OpenAI response schema, so the openai SDK's pydantic models
+    (extra="allow") keep it under `usage.model_extra` rather than a typed
+    field. Returns None if the provider behind this particular model/route
+    didn't report a cost — not every one does, and that's not treated as an
+    error, just missing data (see src/eval/runner.py's cost aggregation).
+    """
+    usage = getattr(response, "usage", None)
+    if usage is None:
+        return None
+
+    cost = getattr(usage, "cost", None)
+    if cost is not None:
+        return float(cost)
+
+    extra = getattr(usage, "model_extra", None) or {}
+    cost = extra.get("cost")
+    return float(cost) if cost is not None else None

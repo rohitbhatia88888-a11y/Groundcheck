@@ -8,7 +8,7 @@ from __future__ import annotations
 import re
 
 from src.generation.models import Answer, Citation
-from src.generation.openrouter_client import get_openrouter_client
+from src.generation.openrouter_client import extract_cost_usd, get_openrouter_client
 from src.retrieval.models import RetrievedChunk
 
 _CITATION_PATTERN = re.compile(r"\[([^\[\]]+)\]")
@@ -74,6 +74,8 @@ class OpenRouterGenerator:
         response = self._client.chat.completions.create(
             model=self.model,
             max_tokens=self.max_tokens,
+            temperature=0,  # deterministic where the provider honors it — see CLAUDE.md
+            extra_body={"usage": {"include": True}},  # asks OpenRouter to report cost
             messages=[
                 {"role": "system", "content": _SYSTEM_PROMPT},
                 {"role": "user", "content": _build_user_message(query, context)},
@@ -87,4 +89,6 @@ class OpenRouterGenerator:
             citations=citations,
             context=context,
             unsupported_citation_markers=unsupported,
+            model_used=response.model,
+            cost_usd=extract_cost_usd(response),
         )
