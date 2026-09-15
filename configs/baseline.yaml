@@ -1,0 +1,38 @@
+# Baseline experiment: the simplest fully-wired pipeline, used as a reference
+# point for every later chunking/embedding/reranking variant to beat.
+name: baseline
+
+raw_data_dir: data/raw
+golden_set_path: eval/golden_set.json
+results_path: results/baseline.csv
+
+parser:
+  type: pymupdf
+
+chunker:
+  type: fixed_size
+  params:
+    chunk_size: 1000
+    chunk_overlap: 200
+
+embedder:
+  type: sentence_transformers
+  params:
+    model_name: all-MiniLM-L6-v2
+
+vector_store:
+  type: qdrant
+  params:
+    collection_name: baseline
+    location: ":memory:"   # point at http://localhost:6333 for a real run
+
+reranker:
+  type: identity
+
+generator:
+  type: claude
+  params:
+    model: claude-sonnet-5
+
+retrieval_top_k: 10
+rerank_top_k: 5
