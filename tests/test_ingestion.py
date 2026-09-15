@@ -40,3 +40,33 @@ def test_fixed_size_chunker_splits_with_overlap_and_skips_blank_pages(make_pdf):
 def test_fixed_size_chunker_rejects_overlap_not_smaller_than_size():
     with pytest.raises(ValueError):
         FixedSizeChunker(chunk_size=100, chunk_overlap=100)
+
+
+def test_parser_detects_headings_and_carries_section_across_pages(structured_pdf):
+    parsed = PyMuPDFParser().parse(structured_pdf)
+
+    page1, page2 = parsed.pages
+    assert page1.section is None  # nothing precedes page 1
+    assert [h.text for h in page1.headings] == ["Introduction"]
+    assert page1.headings[0].char_offset == 0  # heading is the first line on the page
+
+    assert page2.section == "Introduction"  # inherited from page 1's heading
+    assert [h.text for h in page2.headings] == ["Methodology"]
+    # the offset must land exactly on "Methodology" in this page's own text
+    offset = page2.headings[0].char_offset
+    assert page2.text[offset : offset + len("Methodology")] == "Methodology"
+
+
+def test_parser_extracts_table_separately_from_prose(structured_pdf):
+    parsed = PyMuPDFParser().parse(structured_pdf)
+
+    assert len(parsed.tables) == 1
+    table = parsed.tables[0]
+    assert table.page == 1
+    assert table.table_index == 0
+    assert "Accuracy" in table.markdown
+    assert "0.95" in table.markdown
+
+    # table cell text must not leak into the page's prose text
+    assert "Metric" not in parsed.pages[0].text
+    assert "Accuracy" not in parsed.pages[0].text
