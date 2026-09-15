@@ -30,9 +30,9 @@ reranker:
   type: identity
 
 generator:
-  type: claude
+  type: openrouter
   params:
-    model: claude-sonnet-5
+    model: openai/gpt-4o-mini   # any model id OpenRouter exposes; swap freely
 
 retrieval_top_k: 10
 rerank_top_k: 5

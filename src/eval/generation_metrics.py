@@ -8,21 +8,26 @@ separately, never blended into one score.
 
 from __future__ import annotations
 
-import anthropic
+import json
+
 from pydantic import BaseModel
 
 from src.generation.models import Answer
+from src.generation.openrouter_client import get_openrouter_client
 
 _SCORE_TOOL = {
-    "name": "submit_score",
-    "description": "Submit a numeric judgment with reasoning.",
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "score": {"type": "number", "minimum": 0, "maximum": 1},
-            "reasoning": {"type": "string"},
+    "type": "function",
+    "function": {
+        "name": "submit_score",
+        "description": "Submit a numeric judgment with reasoning.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "score": {"type": "number", "minimum": 0, "maximum": 1},
+                "reasoning": {"type": "string"},
+            },
+            "required": ["score", "reasoning"],
         },
-        "required": ["score", "reasoning"],
     },
 }
 
@@ -48,24 +53,26 @@ class JudgeScore(BaseModel):
     reasoning: str
 
 
-class ClaudeJudge:
-    """LLM-as-judge for generation-quality metrics, backed by the Anthropic API."""
+class OpenRouterJudge:
+    """LLM-as-judge for generation-quality metrics, backed by OpenRouter."""
 
-    def __init__(self, model: str = "claude-sonnet-5") -> None:
+    def __init__(self, model: str = "openai/gpt-4o-mini") -> None:
         self.model = model
-        self._client = anthropic.Anthropic()
+        self._client = get_openrouter_client()
 
     def _judge(self, system_prompt: str, user_message: str) -> JudgeScore:
-        response = self._client.messages.create(
+        response = self._client.chat.completions.create(
             model=self.model,
             max_tokens=512,
-            system=system_prompt,
             tools=[_SCORE_TOOL],
-            tool_choice={"type": "tool", "name": "submit_score"},
-            messages=[{"role": "user", "content": user_message}],
+            tool_choice={"type": "function", "function": {"name": "submit_score"}},
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_message},
+            ],
         )
-        tool_use = next(block for block in response.content if block.type == "tool_use")
-        return JudgeScore.model_validate(tool_use.input)
+        tool_call = response.choices[0].message.tool_calls[0]
+        return JudgeScore.model_validate(json.loads(tool_call.function.arguments))
 
     def score_faithfulness(self, answer: Answer) -> JudgeScore:
         context_block = "\n\n".join(f"[{c.chunk_id}] {c.text}" for c in answer.context)

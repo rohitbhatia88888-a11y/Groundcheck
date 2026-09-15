@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import Any, NamedTuple
 
 from src.eval.config import ComponentConfig, ExperimentConfig
-from src.generation import ClaudeGenerator, Generator
+from src.generation import Generator, OpenRouterGenerator
 from src.ingestion import Chunker, DocumentParser, FixedSizeChunker, PyMuPDFParser
 from src.retrieval import (
     Embedder,
@@ -24,7 +24,7 @@ CHUNKERS: dict[str, type[Chunker]] = {"fixed_size": FixedSizeChunker}
 EMBEDDERS: dict[str, type[Embedder]] = {"sentence_transformers": SentenceTransformersEmbedder}
 VECTOR_STORES: dict[str, type[VectorStore]] = {"qdrant": QdrantVectorStore}
 RERANKERS: dict[str, type[Reranker]] = {"identity": IdentityReranker}
-GENERATORS: dict[str, type[Generator]] = {"claude": ClaudeGenerator}
+GENERATORS: dict[str, type[Generator]] = {"openrouter": OpenRouterGenerator}
 
 
 def _build(registry: dict[str, type], config: ComponentConfig, **extra_params: Any) -> Any:

@@ -1,5 +1,5 @@
 from src.eval.config import ComponentConfig, ExperimentConfig
-from src.eval.generation_metrics import ClaudeJudge, JudgeScore
+from src.eval.generation_metrics import JudgeScore, OpenRouterJudge
 from src.eval.golden_set import GoldenSet, GoldenSetItem, RelevantChunkRef
 from src.eval.registry import Pipeline, build_pipeline
 from src.eval.retrieval_metrics import mean_reciprocal_rank, precision_at_k, recall_at_k
@@ -16,7 +16,7 @@ __all__ = [
     "precision_at_k",
     "recall_at_k",
     "mean_reciprocal_rank",
-    "ClaudeJudge",
+    "OpenRouterJudge",
     "JudgeScore",
     "ingest_raw_documents",
     "run_experiment",

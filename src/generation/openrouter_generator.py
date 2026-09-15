@@ -1,17 +1,14 @@
-"""Claude-backed Generator: answers a query from retrieved context, enforcing
-that every citation marker in the answer maps to a chunk actually provided.
-
-Requires ANTHROPIC_API_KEY in the environment (read automatically by the
-Anthropic client) — never pass a key as a literal string.
+"""OpenRouter-backed Generator: answers a query from retrieved context via any
+chat model OpenRouter exposes, enforcing that every citation marker in the
+answer maps to a chunk actually provided.
 """
 
 from __future__ import annotations
 
 import re
 
-import anthropic
-
 from src.generation.models import Answer, Citation
+from src.generation.openrouter_client import get_openrouter_client
 from src.retrieval.models import RetrievedChunk
 
 _CITATION_PATTERN = re.compile(r"\[([^\[\]]+)\]")
@@ -41,7 +38,7 @@ def extract_citations(
     """Parses bracketed markers out of generated text and enforces that each one
     maps to a chunk actually present in `context`.
 
-    Returns (valid citations, in first-seen order and de-duplicated;
+    Returns (valid citations, de-duplicated in first-seen order;
              marker strings that did NOT match any chunk_id in context).
     """
     chunks_by_id = {chunk.chunk_id: chunk for chunk in context}
@@ -65,22 +62,24 @@ def extract_citations(
     return citations, unsupported
 
 
-class ClaudeGenerator:
-    """Generator backed by the Anthropic Messages API."""
+class OpenRouterGenerator:
+    """Generator backed by any chat model exposed through OpenRouter."""
 
-    def __init__(self, model: str = "claude-sonnet-5", max_tokens: int = 1024) -> None:
+    def __init__(self, model: str = "openai/gpt-4o-mini", max_tokens: int = 1024) -> None:
         self.model = model
         self.max_tokens = max_tokens
-        self._client = anthropic.Anthropic()
+        self._client = get_openrouter_client()
 
     def generate(self, query: str, context: list[RetrievedChunk]) -> Answer:
-        response = self._client.messages.create(
+        response = self._client.chat.completions.create(
             model=self.model,
             max_tokens=self.max_tokens,
-            system=_SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": _build_user_message(query, context)}],
+            messages=[
+                {"role": "system", "content": _SYSTEM_PROMPT},
+                {"role": "user", "content": _build_user_message(query, context)},
+            ],
         )
-        text = "".join(block.text for block in response.content if block.type == "text")
+        text = response.choices[0].message.content or ""
         citations, unsupported = extract_citations(text, context)
 
         return Answer(

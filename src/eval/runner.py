@@ -11,7 +11,7 @@ import csv
 from pathlib import Path
 
 from src.eval.config import ExperimentConfig
-from src.eval.generation_metrics import ClaudeJudge
+from src.eval.generation_metrics import OpenRouterJudge
 from src.eval.golden_set import GoldenSet
 from src.eval.registry import Pipeline, build_pipeline
 from src.eval.retrieval_metrics import mean_reciprocal_rank, precision_at_k, recall_at_k
@@ -43,11 +43,11 @@ def ingest_raw_documents(config: ExperimentConfig, pipeline: Pipeline) -> int:
     return len(embedded)
 
 
-def run_experiment(config_path: str | Path, judge: ClaudeJudge | None = None) -> Path:
+def run_experiment(config_path: str | Path, judge: OpenRouterJudge | None = None) -> Path:
     """Runs the experiment named in `config_path` and returns the results CSV path."""
     config = ExperimentConfig.from_yaml(config_path)
     pipeline = build_pipeline(config)
-    judge = judge or ClaudeJudge()
+    judge = judge or OpenRouterJudge()
 
     ingest_raw_documents(config, pipeline)
     golden_set = GoldenSet.load(config.golden_set_path)
@@ -64,7 +64,7 @@ def run_experiment(config_path: str | Path, judge: ClaudeJudge | None = None) ->
     return results_path
 
 
-def _evaluate_item(item, config: ExperimentConfig, pipeline: Pipeline, judge: ClaudeJudge) -> dict:
+def _evaluate_item(item, config: ExperimentConfig, pipeline: Pipeline, judge: OpenRouterJudge) -> dict:
     query_vector = pipeline.embedder.embed_query(item.question)
     retrieved = pipeline.vector_store.query(query_vector, top_k=config.retrieval_top_k)
     reranked = pipeline.reranker.rerank(item.question, retrieved, top_k=config.rerank_top_k)
