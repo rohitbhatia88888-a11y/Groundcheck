@@ -15,7 +15,7 @@ from src.eval.generation_metrics import OpenRouterJudge
 from src.eval.golden_set import GoldenSet
 from src.eval.registry import Pipeline, build_pipeline
 from src.eval.retrieval_metrics import mean_reciprocal_rank, precision_at_k, recall_at_k
-from src.ingestion import PyMuPDFParser
+from src.ingestion import PyMuPDFParser, table_to_chunk
 from src.ingestion.models import Chunk
 
 FIELDNAMES = [
@@ -31,7 +31,9 @@ FIELDNAMES = [
 
 
 def ingest_raw_documents(config: ExperimentConfig, pipeline: Pipeline) -> int:
-    """Parses, chunks, embeds, and upserts every file under raw_data_dir.
+    """Parses, chunks, embeds, and upserts every *.pdf under raw_data_dir.
+    Prose is chunked by the configured Chunker; tables are extracted
+    separately and indexed as their own chunks (see src/ingestion/tables.py).
     Returns the number of chunks indexed.
 
     Parsing isn't a swappable module (see CLAUDE.md), so PyMuPDFParser is used
@@ -40,9 +42,10 @@ def ingest_raw_documents(config: ExperimentConfig, pipeline: Pipeline) -> int:
     parser = PyMuPDFParser()
     raw_dir = Path(config.raw_data_dir)
     chunks: list[Chunk] = []
-    for path in sorted(p for p in raw_dir.glob("**/*") if p.is_file()):
+    for path in sorted(raw_dir.glob("**/*.pdf")):
         document = parser.parse(path)
         chunks.extend(pipeline.chunker.chunk(document))
+        chunks.extend(table_to_chunk(t) for t in document.tables)
 
     embedded = pipeline.embedder.embed_chunks(chunks)
     pipeline.vector_store.upsert(embedded)
