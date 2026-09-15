@@ -40,8 +40,12 @@ def test_openrouter_generator_builds_answer_from_mocked_response(monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "dummy-test-key")
     context = _context()
 
+    # `usage` explicitly set (not left as an auto-vivified MagicMock attribute):
+    # MagicMock supports __float__ by default and returns 1.0, so an
+    # unconfigured `.usage.cost` would silently produce a fake cost_usd=1.0
+    # instead of the real "provider didn't report cost" None.
     message = MagicMock(content="Mitochondria produce ATP [c1]. Unrelated fact [c2].")
-    response = MagicMock(choices=[MagicMock(message=message)])
+    response = MagicMock(choices=[MagicMock(message=message)], model="openai/gpt-4o-mini", usage=None)
 
     with patch("src.generation.openrouter_client.OpenAI") as mock_openai:
         mock_openai.return_value.chat.completions.create.return_value = response
@@ -54,3 +58,6 @@ def test_openrouter_generator_builds_answer_from_mocked_response(monkeypatch):
     assert {c.chunk_id for c in answer.citations} == {"c1", "c2"}
     assert answer.unsupported_citation_markers == []
     assert call_kwargs["model"] == "openai/gpt-4o-mini"
+    assert call_kwargs["temperature"] == 0
+    assert answer.model_used == "openai/gpt-4o-mini"
+    assert answer.cost_usd is None

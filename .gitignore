@@ -20,6 +20,7 @@ data/processed/*
 # Experiment outputs
 results/*
 !results/.gitkeep
+!results/README.md
 
 # Qdrant local storage
 qdrant_storage/
