@@ -6,9 +6,6 @@ raw_data_dir: data/raw
 golden_set_path: eval/golden_set.json
 results_path: results/baseline.csv
 
-parser:
-  type: pymupdf
-
 chunker:
   type: fixed_size
   params:

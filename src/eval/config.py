@@ -27,7 +27,6 @@ class ExperimentConfig(BaseModel):
     golden_set_path: str = "eval/golden_set.json"
     results_path: str | None = None  # defaults to results/<name>.csv
 
-    parser: ComponentConfig
     chunker: ComponentConfig
     embedder: ComponentConfig
     vector_store: ComponentConfig
