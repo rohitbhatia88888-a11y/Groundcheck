@@ -6,10 +6,10 @@ from src.ingestion.pymupdf_parser import PyMuPDFParser
 __all__ = [
     "Chunk",
     "ChunkMetadata",
-    "ParsedDocument",
-    "ParsedPage",
     "Chunker",
     "DocumentParser",
-    "PyMuPDFParser",
     "FixedSizeChunker",
+    "ParsedDocument",
+    "ParsedPage",
+    "PyMuPDFParser",
 ]

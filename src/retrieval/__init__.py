@@ -6,11 +6,11 @@ from src.retrieval.sentence_transformers_embedder import SentenceTransformersEmb
 
 __all__ = [
     "EmbeddedChunk",
-    "RetrievedChunk",
     "Embedder",
-    "VectorStore",
-    "Reranker",
-    "SentenceTransformersEmbedder",
-    "QdrantVectorStore",
     "IdentityReranker",
+    "QdrantVectorStore",
+    "Reranker",
+    "RetrievedChunk",
+    "SentenceTransformersEmbedder",
+    "VectorStore",
 ]

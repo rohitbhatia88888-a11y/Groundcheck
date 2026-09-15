@@ -11,3 +11,16 @@ dependencies = [
     "qdrant-client>=1.19.0",
     "sentence-transformers>=6.0.1",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.16.7",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+target-version = "py311"
