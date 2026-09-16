@@ -1,0 +1,23 @@
+# Never ship secrets in the image — set OPENROUTER_API_KEY as a Fly secret instead
+.env
+.env.*
+!.env.example
+
+# Python / tooling
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+.git/
+.gitignore
+.dockerignore
+
+# Not needed to serve — eval-only artifacts
+results/
+eval/candidates.jsonl
+data/processed/
+
+# OS
+.DS_Store
