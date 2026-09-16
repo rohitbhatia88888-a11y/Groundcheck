@@ -6,6 +6,7 @@ answer maps to a chunk actually provided.
 from __future__ import annotations
 
 import re
+from collections.abc import Iterator
 
 from src.generation.models import Answer, Citation
 from src.generation.openrouter_client import extract_cost_usd, get_openrouter_client
@@ -102,3 +103,27 @@ class OpenRouterGenerator:
             model_used=response.model,
             cost_usd=extract_cost_usd(response),
         )
+
+    def generate_stream(self, query: str, context: list[RetrievedChunk]) -> Iterator[str]:
+        """Satisfies StreamingGenerator. Yields text deltas as they arrive;
+        does not check citations (needs the full text — a marker can land
+        anywhere) or extract cost (OpenRouter's cost-on-stream reporting is
+        inconsistent enough not to rely on for the live API). Callers that
+        need those should accumulate the deltas and call extract_citations()
+        themselves once the stream is exhausted (see src/api/app.py)."""
+        stream = self._client.chat.completions.create(
+            model=self.model,
+            max_tokens=self.max_tokens,
+            temperature=0,
+            stream=True,
+            messages=[
+                {"role": "system", "content": _SYSTEM_PROMPT},
+                {"role": "user", "content": _build_user_message(query, context)},
+            ],
+        )
+        for chunk in stream:
+            if not chunk.choices:
+                continue
+            delta = chunk.choices[0].delta.content
+            if delta:
+                yield delta
