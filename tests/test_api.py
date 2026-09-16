@@ -7,6 +7,7 @@ fixture PDF.
 from __future__ import annotations
 
 import json
+import time
 from unittest.mock import MagicMock, patch
 
 import pymupdf
@@ -14,6 +15,18 @@ import pytest
 from fastapi.testclient import TestClient
 
 from src.api.app import app, limiter
+
+
+def _wait_until_ready(timeout: float = 10.0) -> None:
+    """Indexing now runs as a background task (see src/api/app.py) rather
+    than blocking startup, so entering the TestClient context no longer
+    guarantees it's finished — poll app.state.ready instead of assuming."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if app.state.ready.is_set():
+            return
+        time.sleep(0.02)
+    raise TimeoutError("app did not finish indexing within the test timeout")
 
 
 def _fake_stream_chunks(text: str):
@@ -60,7 +73,62 @@ rerank_top_k: 5
     with patch("src.generation.openrouter_client.OpenAI") as mock_openai:
         mock_openai.return_value.chat.completions.create.side_effect = _fake_create
         with TestClient(app) as test_client:
+            _wait_until_ready()
             yield test_client
+
+
+class TestReadiness:
+    """Regression coverage for a real production failure: indexing used to
+    run inside the blocking lifespan, so /health couldn't respond AT ALL
+    until the whole corpus finished embedding — on a slow/throttled VM this
+    took long enough that Fly's orchestrator kept restarting the machine
+    before it ever got there. Indexing is now a background task; /health
+    and /query must report clearly (503, not silence) while it's running.
+    """
+
+    def test_health_and_query_report_not_ready_before_indexing_completes(
+        self, tmp_path, monkeypatch
+    ):
+        raw_dir = tmp_path / "raw"
+        raw_dir.mkdir()
+        doc = pymupdf.open()
+        doc.new_page().insert_textbox(pymupdf.Rect(72, 72, 523, 770), "Some content.")
+        doc.save(raw_dir / "doc.pdf")
+        doc.close()
+
+        config_path = tmp_path / "config.yaml"
+        config_path.write_text(f"""
+name: readiness_test
+raw_data_dir: {raw_dir}
+golden_set_path: {tmp_path / "golden_set.json"}
+chunker: {{type: fixed_size}}
+embedder: {{type: sentence_transformers}}
+vector_store: {{type: qdrant, params: {{collection_name: readiness_test, location: ':memory:'}}}}
+reranker: {{type: identity}}
+generator: {{type: openrouter}}
+""")
+        monkeypatch.setenv("RAG_CONFIG_PATH", str(config_path))
+        monkeypatch.setenv("OPENROUTER_API_KEY", "dummy-test-key")
+        limiter.reset()
+
+        with patch("src.generation.openrouter_client.OpenAI") as mock_openai:
+            mock_openai.return_value.chat.completions.create.side_effect = _fake_create
+            with TestClient(app) as test_client:
+                # Immediately after startup: asyncio.create_task only
+                # schedules the background ingest, it doesn't run it
+                # synchronously — this is the real "not ready" window a
+                # live deploy sits in until embedding finishes.
+                assert not app.state.ready.is_set()
+
+                health = test_client.get("/health")
+                assert health.status_code == 503
+                assert health.json()["status"] == "indexing"
+
+                query = test_client.post("/query", json={"question": "anything"})
+                assert query.status_code == 503
+
+                _wait_until_ready()
+                assert test_client.get("/health").json() == {"status": "ok"}
 
 
 def _read_ndjson(response) -> list[dict]:

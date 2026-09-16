@@ -106,6 +106,10 @@ form.addEventListener('submit', async (e) => {
       statusEl.innerHTML = '<span class="error">Rate limit reached — wait a moment and try again.</span>';
       return;
     }
+    if (res.status === 503) {
+      statusEl.innerHTML = '<span class="error">Still indexing documents — try again in a moment.</span>';
+      return;
+    }
     if (!res.ok) {
       statusEl.innerHTML = `<span class="error">Request failed (${res.status}).</span>`;
       return;

@@ -7,10 +7,22 @@ Usage:
     RAG_CONFIG_PATH=configs/hybrid.yaml uv run uvicorn src.api.app:app
 
 See DEPLOY.md for Fly.io deployment; Dockerfile at the repo root.
+
+Indexing (parse+chunk+embed+upsert the whole corpus) runs as a BACKGROUND
+task after startup, not inside the blocking `lifespan` — found the hard way
+on a real Fly.io deploy: with it blocking startup, /health couldn't respond
+at all until the entire corpus finished embedding, and on a slow/throttled
+VM that took long enough that Fly's own orchestrator kept restarting the
+machine before it ever got there, resetting progress to zero every cycle.
+Now the process becomes reachable (and /health responds, just with
+"indexing" until ready) within seconds of the Python import finishing;
+/health and /query both report clearly if the corpus isn't ready yet
+instead of the process just not answering at all.
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 from collections.abc import AsyncIterator
@@ -19,8 +31,8 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -54,15 +66,26 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             f"a StreamingGenerator. OpenRouterGenerator ('openrouter') does."
         )
 
-    # Re-embeds+re-indexes raw_data_dir fresh at every startup — simple and
-    # correct (no stale-index risk), fine for this corpus size. See
-    # DEPLOY.md for the tradeoff on larger corpora / cold-start latency.
-    ingest_raw_documents(config, pipeline)
-
     app.state.config = config
     app.state.pipeline = pipeline
     app.state.config_path = str(config_path)
+    app.state.ready = asyncio.Event()
+    app.state.startup_error = None
+
+    async def _ingest() -> None:
+        try:
+            # ingest_raw_documents is sync/CPU-bound (embedding) — to_thread
+            # so it doesn't block the event loop (and therefore /health)
+            # while it runs.
+            await asyncio.to_thread(ingest_raw_documents, config, pipeline)
+        except Exception as exc:  # noqa: BLE001 - reported via /health, not just a crash
+            app.state.startup_error = str(exc)
+        finally:
+            app.state.ready.set()
+
+    ingest_task = asyncio.create_task(_ingest())
     yield
+    ingest_task.cancel()
 
 
 app = FastAPI(title="RAG API", lifespan=lifespan)
@@ -71,8 +94,14 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
 @app.get("/health")
-async def health() -> dict[str, str]:
-    return {"status": "ok"}
+async def health(request: Request) -> JSONResponse:
+    if not request.app.state.ready.is_set():
+        return JSONResponse({"status": "indexing"}, status_code=503)
+    if request.app.state.startup_error:
+        return JSONResponse(
+            {"status": "error", "detail": request.app.state.startup_error}, status_code=500
+        )
+    return JSONResponse({"status": "ok"})
 
 
 @app.get("/")
@@ -123,6 +152,11 @@ def _stream_answer(
 @app.post("/query")
 @limiter.limit("10/minute")
 async def query(request: Request, body: QueryRequest) -> StreamingResponse:
+    if not request.app.state.ready.is_set():
+        raise HTTPException(status_code=503, detail="Still indexing documents — try again shortly.")
+    if request.app.state.startup_error:
+        raise HTTPException(status_code=500, detail=f"Startup failed: {request.app.state.startup_error}")
+
     pipeline: Pipeline = request.app.state.pipeline
     config: ExperimentConfig = request.app.state.config
 
