@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Add your description here"
 requires-python = ">=3.11"
 dependencies = [
+    "fastapi>=0.141.1",
     "openai>=3.14.0",
     "pydantic>=2.13.5",
     "pymupdf>=1.28.2",
@@ -11,11 +12,14 @@ dependencies = [
     "qdrant-client>=1.19.0",
     "rank-bm25>=0.2.2",
     "sentence-transformers>=6.0.1",
+    "slowapi>=0.1.10",
     "tiktoken>=0.14.0",
+    "uvicorn[standard]>=0.53.0",
 ]
 
 [dependency-groups]
 dev = [
+    "httpx>=0.28.1",
     "pytest>=9.1.1",
     "ruff>=0.16.7",
 ]

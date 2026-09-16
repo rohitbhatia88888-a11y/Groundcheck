@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RAG Query</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 2rem 1rem 4rem;
+    line-height: 1.5;
+  }
+  h1 { font-size: 1.1rem; font-weight: 600; opacity: 0.7; margin-bottom: 1.5rem; }
+  form { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
+  textarea {
+    flex: 1;
+    font: inherit;
+    padding: 0.6rem 0.8rem;
+    border: 1px solid #8888;
+    border-radius: 6px;
+    resize: vertical;
+    min-height: 2.4rem;
+  }
+  button {
+    font: inherit;
+    padding: 0.6rem 1.2rem;
+    border: none;
+    border-radius: 6px;
+    background: #2563eb;
+    color: white;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.5; cursor: default; }
+  #answer {
+    white-space: pre-wrap;
+    min-height: 1.5em;
+    padding: 0.2rem 0;
+  }
+  #status { font-size: 0.85rem; opacity: 0.6; margin-bottom: 0.5rem; min-height: 1.2em; }
+  #sources { margin-top: 2rem; }
+  #sources h2 { font-size: 0.85rem; text-transform: uppercase; opacity: 0.6; letter-spacing: 0.04em; }
+  details {
+    border: 1px solid #8884;
+    border-radius: 6px;
+    padding: 0.5rem 0.8rem;
+    margin-bottom: 0.5rem;
+  }
+  summary { cursor: pointer; font-size: 0.9rem; display: flex; gap: 0.5rem; align-items: baseline; }
+  summary .meta { opacity: 0.6; font-weight: normal; }
+  .badge {
+    font-size: 0.7rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    background: #16a34a33;
+    color: #16a34a;
+    font-weight: 600;
+  }
+  .chunk-text {
+    margin-top: 0.6rem;
+    font-size: 0.85rem;
+    white-space: pre-wrap;
+    opacity: 0.85;
+  }
+  .error { color: #dc2626; }
+</style>
+</head>
+<body>
+  <h1>RAG Query</h1>
+  <form id="form">
+    <textarea id="question" placeholder="Ask a question about the indexed documents…" required></textarea>
+    <button id="submit" type="submit">Ask</button>
+  </form>
+  <div id="status"></div>
+  <div id="answer"></div>
+  <div id="sources"></div>
+
+<script>
+const form = document.getElementById('form');
+const questionEl = document.getElementById('question');
+const submitBtn = document.getElementById('submit');
+const statusEl = document.getElementById('status');
+const answerEl = document.getElementById('answer');
+const sourcesEl = document.getElementById('sources');
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const question = questionEl.value.trim();
+  if (!question) return;
+
+  submitBtn.disabled = true;
+  statusEl.textContent = 'Retrieving…';
+  answerEl.textContent = '';
+  sourcesEl.innerHTML = '';
+
+  try {
+    const res = await fetch('/query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question }),
+    });
+
+    if (res.status === 429) {
+      statusEl.innerHTML = '<span class="error">Rate limit reached — wait a moment and try again.</span>';
+      return;
+    }
+    if (!res.ok) {
+      statusEl.innerHTML = `<span class="error">Request failed (${res.status}).</span>`;
+      return;
+    }
+
+    statusEl.textContent = 'Answering…';
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      let newlineIndex;
+      while ((newlineIndex = buffer.indexOf('\n')) >= 0) {
+        const line = buffer.slice(0, newlineIndex);
+        buffer = buffer.slice(newlineIndex + 1);
+        if (!line.trim()) continue;
+        handleEvent(JSON.parse(line));
+      }
+    }
+  } catch (err) {
+    statusEl.innerHTML = `<span class="error">${err}</span>`;
+  } finally {
+    submitBtn.disabled = false;
+  }
+});
+
+function handleEvent(event) {
+  if (event.type === 'delta') {
+    answerEl.textContent += event.text;
+  } else if (event.type === 'error') {
+    statusEl.innerHTML = `<span class="error">${event.message}</span>`;
+  } else if (event.type === 'done') {
+    statusEl.textContent = '';
+    renderSources(event.context, event.unsupported_citation_markers);
+  }
+}
+
+function renderSources(context, unsupported) {
+  sourcesEl.innerHTML = '';
+  if (!context || context.length === 0) return;
+
+  const heading = document.createElement('h2');
+  heading.textContent = `Sources (${context.length})`;
+  sourcesEl.appendChild(heading);
+
+  for (const chunk of context) {
+    const details = document.createElement('details');
+
+    const summary = document.createElement('summary');
+    const badge = chunk.cited ? '<span class="badge">cited</span>' : '';
+    summary.innerHTML = `${badge}<span>${chunk.doc_id}, p.${chunk.page}</span>` +
+      `<span class="meta">score ${chunk.score.toFixed(3)}</span>`;
+
+    const text = document.createElement('div');
+    text.className = 'chunk-text';
+    text.textContent = chunk.text;
+
+    details.appendChild(summary);
+    details.appendChild(text);
+    sourcesEl.appendChild(details);
+  }
+
+  if (unsupported && unsupported.length > 0) {
+    const warn = document.createElement('div');
+    warn.className = 'error';
+    warn.style.marginTop = '0.8rem';
+    warn.style.fontSize = '0.85rem';
+    warn.textContent = `Warning: answer cited unrecognized id(s): ${unsupported.join(', ')}`;
+    sourcesEl.appendChild(warn);
+  }
+}
+</script>
+</body>
+</html>
