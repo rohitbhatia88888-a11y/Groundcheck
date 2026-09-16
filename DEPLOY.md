@@ -1,21 +1,44 @@
 # Deploying to Fly.io
 
 Deployed and debugged for real on 2026-09-16 (app `groundcheck`, region
-`ams`) — the `Dockerfile` build itself worked first try via Fly's remote
-builder (no local Docker needed), but the running container hit two real
-problems on first deploy, both fixed below and reflected in this repo's
-`Dockerfile`/`fly.toml` already:
+`ams`). The `Dockerfile` build itself worked first try via Fly's remote
+builder (no local Docker needed) — everything else took four rounds of
+`flyctl logs` to actually get healthy. All four fixes are already reflected
+in this repo's `Dockerfile`/`fly.toml`:
 
-1. **OOM killed** (`fly.toml`'s original `memory = '1gb'` was too small —
-   `torch`/`sentence-transformers` need more, confirmed via `flyctl logs`
-   showing `anon-rss:849012kB` at kill time, mid-corpus-embedding). Now `2gb`.
+1. **OOM killed** — `memory = '1gb'` was too small for `torch`/
+   `sentence-transformers` (`flyctl logs` showed `anon-rss:849012kB` at kill
+   time, mid-embedding). Now `2gb`.
 2. **`uv run` at runtime re-downloaded `ruff`** (a dev-only dependency) on
    every cold start — `uv run` re-syncs all dependency groups by default,
-   undoing the `--no-dev` used at build time. Fixed: the container's `CMD`
-   now invokes `.venv/bin/uvicorn` directly instead of `uv run uvicorn ...`.
+   undoing the `--no-dev` used at build time. `CMD` now invokes
+   `.venv/bin/uvicorn` directly instead.
+3. **Indexing blocked the app from responding at all** — the original
+   `src/api/app.py` ran `ingest_raw_documents` inside the blocking
+   `lifespan`, so `/health` couldn't answer until the *entire* corpus
+   finished embedding. On a slow VM (see #4) that took long enough that
+   Fly's orchestrator kept restarting the machine before it ever got there
+   — three consecutive restarts, zero uvicorn output, never once reaching
+   `Started server process`. Fixed: indexing now runs as an `asyncio`
+   background task; the app responds to `/health` within ~2s of boot,
+   reporting `{"status":"indexing"}` (503) honestly until the corpus is
+   actually ready.
+4. **`min_machines_running = 0` let Fly autostop the machine mid-embed** —
+   `flyctl logs`: `"App groundcheck has excess capacity, autostopping
+   machine ... 0 out of 1 machines left running"`. Background indexing
+   doesn't count as traffic to Fly's idle detector, so a cold start could
+   be killed before it ever finished, independent of #3's fix. Now `1`.
 
-If you're deploying a version of this repo from before that fix, redeploy
-to pick both up — you'd otherwise hit the same OOM kill.
+Even after all four, embedding the EU AI Act's ~850 chunks took **3+
+minutes** on `shared-cpu-1x` (vs. ~15-20s on a Mac) — severe CPU throttling
+on the shared tier, not a bug. `fly.toml` is now `shared-cpu-2x` /
+`cpus = 2`. With `min_machines_running = 1` this slow step only ever runs
+once per deploy, not per request, but it's still worth a faster VM so a
+fresh deploy doesn't leave the app down for minutes.
+
+If you're deploying a version of this repo from before these fixes,
+redeploy to pick up all four — you'd otherwise hit the same failures in
+whatever order you're unlucky enough to find them.
 
 ## One-time setup
 
@@ -74,19 +97,16 @@ Two ways to change it:
 
 ## Things worth knowing before you rely on this
 
-- **Cold starts re-embed the whole corpus, and need real memory to do it.**
-  `src/api/app.py`'s startup calls the same `ingest_raw_documents` the eval
-  runner uses — parse, chunk, embed, index, from scratch, every time the
-  process starts. Locally (on a Mac) this took ~20s for the EU AI Act's
-  ~850 chunks; on Fly's `shared-cpu-1x`, image pull alone took ~1 minute,
-  and the first real deploy OOM-killed mid-embedding at `memory = '1gb'`
-  (see the top of this file) — `2gb` is what's configured now, not yet
-  confirmed sufficient end-to-end on Fly's hardware, so watch `flyctl logs`
-  on your own first deploy and bump further if it recurs. `fly.toml`
-  defaults to `auto_stop_machines = "stop"` (scales to zero when idle) so
-  **every request after an idle period pays this cost again**. Set
-  `min_machines_running = 1` to keep one warm instance always running
-  instead, if that's not acceptable.
+- **Cold starts re-embed the whole corpus in the background.** `src/api/app.py`
+  kicks off the same `ingest_raw_documents` the eval runner uses — parse,
+  chunk, embed, index, from scratch — as a background task right after
+  boot; `/health` responds within seconds either way, reporting `"indexing"`
+  (503) honestly until it's done rather than going silent. Locally this
+  takes ~15-20s for the EU AI Act's ~850 chunks; on Fly it took 3+ minutes
+  even on `shared-cpu-2x` — budget for that gap after every `flyctl deploy`
+  before the app can actually answer queries. `min_machines_running = 1`
+  (set — see the top of this file) means this only happens once per deploy,
+  not per request after idle.
 - **The vector store is in-memory by default** (`location: ":memory:"` in
   most `configs/*.yaml`) — it lives only inside the running process, rebuilt
   every cold start (see above). For a corpus too large to comfortably
@@ -97,10 +117,9 @@ Two ways to change it:
   than something the API redoes on every boot.
 - **Rate limiting is per-machine, not global.** `slowapi`'s default storage
   is in-process memory (see `src/api/app.py`'s `Limiter`) — 10 req/min per
-  IP holds true for a single machine, but Fly could run more than one under
-  load, each with its own independent counter. Fine for `min_machines_running
-  = 0/1` as configured; if you scale out, give `Limiter` a shared
-  `storage_uri` (e.g. Redis) so all machines share one counter.
+  IP holds true for the single always-on machine as configured now, but if
+  you ever scale to more than one machine under load, give `Limiter` a
+  shared `storage_uri` (e.g. Redis) so all machines share one counter.
 - **`data/raw/` ships inside the image** (see `Dockerfile` — it's gitignored
   but not dockerignored, deliberately). Swapping documents means rebuilding
   and redeploying the image, not just changing a config.
