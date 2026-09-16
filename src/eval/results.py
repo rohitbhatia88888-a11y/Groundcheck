@@ -106,15 +106,51 @@ def write_question_results(path: str | Path, results: list[QuestionResult]) -> N
             f.write(result.model_dump_json() + "\n")
 
 
+def _migrate_header_if_schema_grew(path: Path) -> None:
+    """If results/experiments.csv already exists with an OLDER header than
+    ExperimentResult's current fields (i.e. a field was added to the model
+    since this file was created), rewrite the file with the current header,
+    remapping every existing row by COLUMN NAME rather than position.
+
+    Without this, appending a row with more columns than the file's actual
+    header produces a ragged CSV — every row after the schema changed would
+    have a different column count than the header describes, silently
+    misaligning any value after the new field for every later reader. This
+    genuinely happened once (citation_validity_rate was added after
+    baseline/reranked/an early hybrid run already existed) before this fix.
+    Never touches an existing row's VALUES, only which column each lands in.
+    """
+    if not path.exists() or path.stat().st_size == 0:
+        return
+
+    with path.open(newline="") as f:
+        reader = csv.DictReader(f)
+        existing_header = reader.fieldnames
+        existing_rows = list(reader)
+
+    if existing_header is None or list(existing_header) == EXPERIMENT_CSV_FIELDS:
+        return
+
+    with path.open("w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=EXPERIMENT_CSV_FIELDS)
+        writer.writeheader()
+        for row in existing_rows:
+            writer.writerow({field: row.get(field, "") for field in EXPERIMENT_CSV_FIELDS})
+
+
 def append_experiment_result(path: str | Path, result: ExperimentResult) -> None:
     """Appends one row to results/experiments.csv, writing the header only if
-    the file doesn't exist yet. Never rewrites prior rows."""
+    the file doesn't exist yet. Never rewrites prior rows' values — see
+    _migrate_header_if_schema_grew for the one thing it will rewrite (the
+    header, and only when the schema has genuinely grown since)."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    is_new = not path.exists()
+
+    _migrate_header_if_schema_grew(path)
+    write_header = not path.exists() or path.stat().st_size == 0
 
     with path.open("a", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=EXPERIMENT_CSV_FIELDS)
-        if is_new:
+        if write_header:
             writer.writeheader()
         writer.writerow(result.model_dump(mode="json"))
