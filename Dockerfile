@@ -23,4 +23,10 @@ ENV RAG_CONFIG_PATH=configs/baseline.yaml
 
 EXPOSE 8080
 
-CMD ["uv", "run", "uvicorn", "src.api.app:app", "--host", "0.0.0.0", "--port", "8080"]
+# Invoke the venv's uvicorn directly, NOT `uv run uvicorn ...`: uv run
+# re-syncs the project's dependency groups on every invocation, and without
+# an explicit --no-dev it pulls in dev-only tools (ruff, pytest) again even
+# though the build-time `uv sync --frozen --no-dev` above already excluded
+# them — wasted startup time and a network call on every cold start, for no
+# reason (found this the hard way in a real deploy's logs).
+CMD [".venv/bin/uvicorn", "src.api.app:app", "--host", "0.0.0.0", "--port", "8080"]
