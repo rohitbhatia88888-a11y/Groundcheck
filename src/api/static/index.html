@@ -67,7 +67,7 @@
   }
   .wordmark::before { content: "[ "; color: var(--accent); }
   .wordmark::after { content: " ]"; color: var(--accent); }
-  .tagline { font-size: 0.8rem; color: var(--ink-dim); }
+  .intro { font-size: 0.92rem; color: var(--ink); max-width: 62ch; margin-top: 0.5rem; }
 
   /* --- Layout: sidebar "system" panel + main column, sources full-width below --- */
   .layout {
@@ -264,7 +264,12 @@
   <header>
     <div>
       <div class="wordmark">groundcheck</div>
-      <div class="tagline">retrieval-augmented Q&amp;A over the EU AI Act — evaluated, not vibes-checked</div>
+      <p class="intro">
+        Ask a question and get an answer grounded in the actual text, with every claim
+        traced back to a cited chunk. Every stage of the pipeline (chunking, retrieval,
+        reranking) is a swappable module measured against the others; the panel on the
+        left shows exactly which combination answered your question.
+      </p>
     </div>
   </header>
 
@@ -276,7 +281,7 @@
           <div class="stat-row"><dt>status</dt><dd>loading…</dd></div>
         </dl>
         <a class="gh-link" href="https://github.com/rohitbhatia88888-a11y/Groundcheck" target="_blank" rel="noopener">
-          every module is swappable — results &amp; source on GitHub →
+          every module is swappable. Results &amp; source on GitHub →
         </a>
       </div>
     </aside>
@@ -354,12 +359,12 @@ form.addEventListener('submit', async (e) => {
 
     if (res.status === 429) {
       statusEl.classList.add('err');
-      statusEl.textContent = 'rate limit reached — wait a moment and try again';
+      statusEl.textContent = 'rate limit reached, wait a moment and try again';
       return;
     }
     if (res.status === 503) {
       statusEl.classList.add('err');
-      statusEl.textContent = 'still indexing documents — try again shortly';
+      statusEl.textContent = 'still indexing documents, try again shortly';
       return;
     }
     if (!res.ok) {
