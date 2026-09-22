@@ -16,7 +16,7 @@
     --accent-ink: #ffffff;
     --ok: #15803d;
     --err: #b91c1c;
-    --mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, Consolas, monospace;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   }
   @media (prefers-color-scheme: dark) {
@@ -38,10 +38,15 @@
     background: var(--bg);
     color: var(--ink);
     font-family: var(--sans);
-    max-width: 760px;
+    max-width: 1180px;
     margin: 0 auto;
-    padding: 0 1rem 4rem;
+    padding: 0 1.25rem 4rem;
     line-height: 1.5;
+  }
+
+  a:focus-visible, button:focus-visible, summary:focus-visible, textarea:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
   }
 
   header {
@@ -52,7 +57,7 @@
     gap: 0.4rem;
     padding: 1.6rem 0 1rem;
     border-bottom: 1px solid var(--line);
-    margin-bottom: 1rem;
+    margin-bottom: 1.75rem;
   }
   .wordmark {
     font-family: var(--mono);
@@ -64,21 +69,83 @@
   .wordmark::after { content: " ]"; color: var(--accent); }
   .tagline { font-size: 0.8rem; color: var(--ink-dim); }
 
-  #configbar {
+  /* --- Layout: sidebar "system" panel + main column, sources full-width below --- */
+  .layout {
+    display: grid;
+    grid-template-columns: 260px minmax(0, 1fr);
+    gap: 1.75rem;
+    align-items: start;
+  }
+  .aside { grid-column: 1; }
+  .main { grid-column: 2; min-width: 0; }
+  .sources-section { grid-column: 1 / -1; margin-top: 2rem; }
+
+  @media (max-width: 880px) {
+    .layout { grid-template-columns: 1fr; }
+    .aside, .main, .sources-section { grid-column: 1; }
+  }
+
+  /* --- System status card (sidebar) --- */
+  .system-card {
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--panel);
+    padding: 0.9rem 1rem;
+    position: sticky;
+    top: 1.25rem;
+  }
+  .system-card h2 {
+    margin: 0 0 0.7rem;
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-dim);
+    font-weight: 600;
     display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem 0.7rem;
+    align-items: center;
+    gap: 0.45rem;
+  }
+  .live-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--ok);
+    flex-shrink: 0;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  .live-dot.down { background: var(--err); animation: none; }
+  @media (prefers-reduced-motion: reduce) {
+    .live-dot { animation: none; }
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 color-mix(in srgb, var(--ok) 45%, transparent); }
+    50% { opacity: 0.75; box-shadow: 0 0 0 4px transparent; }
+  }
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.6rem;
+    font-family: var(--mono);
+    font-size: 0.76rem;
+    padding: 0.32rem 0;
+    border-top: 1px dashed var(--line);
+  }
+  .stat-row:first-of-type { border-top: none; }
+  .stat-row dt { color: var(--ink-dim); }
+  .stat-row dd { margin: 0; color: var(--ink); font-weight: 600; text-align: right; }
+  .system-card dl { margin: 0; }
+  .system-card .gh-link {
+    display: block;
+    margin-top: 0.8rem;
+    padding-top: 0.7rem;
+    border-top: 1px solid var(--line);
     font-family: var(--mono);
     font-size: 0.72rem;
     color: var(--ink-dim);
-    padding: 0.55rem 0.8rem;
-    border: 1px dashed var(--line);
-    border-radius: 3px;
-    margin-bottom: 1.6rem;
   }
-  #configbar b { color: var(--ink); font-weight: 600; }
-  #configbar .sep { color: var(--line); }
 
+  /* --- Query form --- */
   form { display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 0.6rem; }
   textarea {
     font: inherit;
@@ -87,24 +154,22 @@
     background: var(--panel);
     color: var(--ink);
     border: 1px solid var(--line);
-    border-radius: 3px;
+    border-radius: 5px;
     resize: vertical;
     min-height: 3.2rem;
   }
-  textarea:focus {
-    outline: none;
-    border-color: var(--accent);
-  }
-  .row { display: flex; justify-content: space-between; align-items: center; gap: 0.6rem; }
+  textarea:focus { border-color: var(--accent); }
+  .row { display: flex; justify-content: space-between; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
   button {
     font-family: var(--mono);
     font-size: 0.78rem;
     font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    padding: 0.55rem 1.1rem;
+    padding: 0.65rem 1.2rem;
+    min-height: 44px;
     border: 1px solid var(--accent);
-    border-radius: 3px;
+    border-radius: 5px;
     background: var(--accent);
     color: var(--accent-ink);
     cursor: pointer;
@@ -122,32 +187,45 @@
 
   #answer {
     white-space: pre-wrap;
+    max-width: 70ch;
     min-height: 1.5em;
     padding: 1rem 1.1rem;
     margin-top: 1rem;
     background: var(--panel);
     border: 1px solid var(--line);
     border-left: 3px solid var(--accent);
-    border-radius: 0 3px 3px 0;
+    border-radius: 0 6px 6px 0;
   }
   #answer:empty { display: none; }
 
-  #sources { margin-top: 1.8rem; }
-  #sources h2 {
+  /* --- Sources: bento-style card grid --- */
+  .sources-section h2 {
     font-family: var(--mono);
     font-size: 0.72rem;
     text-transform: uppercase;
     letter-spacing: 0.06em;
     color: var(--ink-dim);
     font-weight: 600;
-    margin-bottom: 0.6rem;
+    margin-bottom: 0.7rem;
+  }
+  .sources-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 0.7rem;
   }
   details {
     border: 1px solid var(--line);
-    border-radius: 3px;
-    padding: 0.5rem 0.75rem;
-    margin-bottom: 0.45rem;
+    border-radius: 6px;
+    padding: 0.55rem 0.8rem;
     background: var(--panel);
+    transition: border-color 150ms ease;
+  }
+  details.cited {
+    grid-column: span 2;
+    border-color: var(--ok);
+  }
+  @media (max-width: 520px) {
+    details.cited { grid-column: span 1; }
   }
   summary {
     cursor: pointer;
@@ -156,16 +234,17 @@
     display: flex;
     gap: 0.6rem;
     align-items: baseline;
+    flex-wrap: wrap;
   }
   summary .meta { color: var(--ink-dim); margin-left: auto; }
   .badge {
     font-family: var(--mono);
-    font-size: 0.65rem;
+    font-size: 0.68rem;
     font-weight: 700;
     letter-spacing: 0.03em;
     padding: 0.05rem 0.35rem;
     border: 1px solid var(--ok);
-    border-radius: 2px;
+    border-radius: 3px;
     color: var(--ok);
   }
   .chunk-text {
@@ -176,18 +255,9 @@
     color: var(--ink-dim);
     border-top: 1px dashed var(--line);
     padding-top: 0.5rem;
+    overflow-wrap: anywhere;
   }
   .error { color: var(--err); }
-
-  footer {
-    margin-top: 3rem;
-    padding-top: 1rem;
-    border-top: 1px solid var(--line);
-    font-family: var(--mono);
-    font-size: 0.72rem;
-    color: var(--ink-dim);
-  }
-  footer a { color: var(--ink-dim); }
 </style>
 </head>
 <body>
@@ -198,23 +268,36 @@
     </div>
   </header>
 
-  <div id="configbar">loading live config…</div>
+  <div class="layout">
+    <aside class="aside">
+      <div class="system-card">
+        <h2><span class="live-dot" id="livedot"></span>system</h2>
+        <dl id="configstats">
+          <div class="stat-row"><dt>status</dt><dd>loading…</dd></div>
+        </dl>
+        <a class="gh-link" href="https://github.com/rohitbhatia88888-a11y/Groundcheck" target="_blank" rel="noopener">
+          every module is swappable — results &amp; source on GitHub →
+        </a>
+      </div>
+    </aside>
 
-  <form id="form">
-    <textarea id="question" placeholder="Ask a question about the indexed documents…" required></textarea>
-    <div class="row">
-      <div id="status"></div>
-      <button id="submit" type="submit">Run query</button>
+    <div class="main">
+      <form id="form">
+        <textarea id="question" placeholder="Ask a question about the indexed documents…" required></textarea>
+        <div class="row">
+          <div id="status"></div>
+          <button id="submit" type="submit">Run query</button>
+        </div>
+      </form>
+
+      <div id="answer"></div>
     </div>
-  </form>
 
-  <div id="answer"></div>
-  <div id="sources"></div>
-
-  <footer>
-    every module above is swappable and A/B tested —
-    <a href="https://github.com/rohitbhatia88888-a11y/Groundcheck" target="_blank" rel="noopener">results &amp; source on GitHub</a>
-  </footer>
+    <section class="sources-section" id="sourcesSection" hidden>
+      <h2 id="sourcesHeading">sources</h2>
+      <div class="sources-grid" id="sources"></div>
+    </section>
+  </div>
 
 <script>
 const form = document.getElementById('form');
@@ -223,21 +306,29 @@ const submitBtn = document.getElementById('submit');
 const statusEl = document.getElementById('status');
 const answerEl = document.getElementById('answer');
 const sourcesEl = document.getElementById('sources');
-const configbarEl = document.getElementById('configbar');
+const sourcesSectionEl = document.getElementById('sourcesSection');
+const sourcesHeadingEl = document.getElementById('sourcesHeading');
+const configstatsEl = document.getElementById('configstats');
+const livedotEl = document.getElementById('livedot');
+
+function statRow(label, value) {
+  return `<div class="stat-row"><dt>${label}</dt><dd>${value}</dd></div>`;
+}
 
 (async function loadConfig() {
   try {
     const res = await fetch('/config');
     if (!res.ok) throw new Error();
     const c = await res.json();
-    configbarEl.innerHTML =
-      `config <b>${c.name}</b>` +
-      `<span class="sep">·</span>retrieval <b>${c.retrieval}</b>` +
-      `<span class="sep">·</span>rerank <b>${c.reranker}</b>` +
-      `<span class="sep">·</span>top_k <b>${c.retrieval_top_k}/${c.rerank_top_k}</b>` +
-      `<span class="sep">·</span>generator <b>${c.generator}</b>`;
+    configstatsEl.innerHTML =
+      statRow('config', c.name) +
+      statRow('retrieval', c.retrieval) +
+      statRow('rerank', c.reranker) +
+      statRow('top_k', `${c.retrieval_top_k}/${c.rerank_top_k}`) +
+      statRow('generator', c.generator);
   } catch {
-    configbarEl.textContent = 'live config unavailable';
+    configstatsEl.innerHTML = statRow('status', 'unavailable');
+    livedotEl.classList.add('down');
   }
 })();
 
@@ -251,6 +342,7 @@ form.addEventListener('submit', async (e) => {
   statusEl.textContent = 'retrieving…';
   answerEl.textContent = '';
   sourcesEl.innerHTML = '';
+  sourcesSectionEl.hidden = true;
   const startedAt = performance.now();
 
   try {
@@ -318,14 +410,16 @@ function handleEvent(event, startedAt) {
 
 function renderSources(context, unsupported) {
   sourcesEl.innerHTML = '';
-  if (!context || context.length === 0) return;
-
-  const heading = document.createElement('h2');
-  heading.textContent = `sources (${context.length})`;
-  sourcesEl.appendChild(heading);
+  if (!context || context.length === 0) {
+    sourcesSectionEl.hidden = true;
+    return;
+  }
+  sourcesSectionEl.hidden = false;
+  sourcesHeadingEl.textContent = `sources (${context.length})`;
 
   for (const chunk of context) {
     const details = document.createElement('details');
+    if (chunk.cited) details.className = 'cited';
 
     const summary = document.createElement('summary');
     const badge = chunk.cited ? '<span class="badge">cited</span>' : '';
@@ -347,6 +441,7 @@ function renderSources(context, unsupported) {
     warn.style.marginTop = '0.8rem';
     warn.style.fontFamily = 'var(--mono)';
     warn.style.fontSize = '0.75rem';
+    warn.style.gridColumn = '1 / -1';
     warn.textContent = `warning: answer cited unrecognized id(s): ${unsupported.join(', ')}`;
     sourcesEl.appendChild(warn);
   }
