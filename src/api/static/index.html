@@ -3,79 +3,218 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>RAG Query</title>
+<title>Groundcheck</title>
 <style>
-  :root { color-scheme: light dark; }
+  :root {
+    color-scheme: light dark;
+    --bg: #faf8f4;
+    --panel: #ffffff;
+    --ink: #1c1a16;
+    --ink-dim: #6b6558;
+    --line: #dcd6c9;
+    --accent: #b45309;
+    --accent-ink: #ffffff;
+    --ok: #15803d;
+    --err: #b91c1c;
+    --mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #15130f;
+      --panel: #1e1b16;
+      --ink: #ece7db;
+      --ink-dim: #9a927e;
+      --line: #3a352a;
+      --accent: #e0973a;
+      --accent-ink: #1c1a16;
+      --ok: #4ade80;
+      --err: #f87171;
+    }
+  }
+
+  * { box-sizing: border-box; }
   body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    max-width: 720px;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    max-width: 760px;
     margin: 0 auto;
-    padding: 2rem 1rem 4rem;
+    padding: 0 1rem 4rem;
     line-height: 1.5;
   }
-  h1 { font-size: 1.1rem; font-weight: 600; opacity: 0.7; margin-bottom: 1.5rem; }
-  form { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
-  textarea {
-    flex: 1;
-    font: inherit;
-    padding: 0.6rem 0.8rem;
-    border: 1px solid #8888;
-    border-radius: 6px;
-    resize: vertical;
-    min-height: 2.4rem;
+
+  header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    padding: 1.6rem 0 1rem;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 1rem;
   }
-  button {
+  .wordmark {
+    font-family: var(--mono);
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+  .wordmark::before { content: "[ "; color: var(--accent); }
+  .wordmark::after { content: " ]"; color: var(--accent); }
+  .tagline { font-size: 0.8rem; color: var(--ink-dim); }
+
+  #configbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 0.7rem;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--ink-dim);
+    padding: 0.55rem 0.8rem;
+    border: 1px dashed var(--line);
+    border-radius: 3px;
+    margin-bottom: 1.6rem;
+  }
+  #configbar b { color: var(--ink); font-weight: 600; }
+  #configbar .sep { color: var(--line); }
+
+  form { display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 0.6rem; }
+  textarea {
     font: inherit;
-    padding: 0.6rem 1.2rem;
-    border: none;
-    border-radius: 6px;
-    background: #2563eb;
-    color: white;
+    font-size: 0.95rem;
+    padding: 0.7rem 0.85rem;
+    background: var(--panel);
+    color: var(--ink);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    resize: vertical;
+    min-height: 3.2rem;
+  }
+  textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .row { display: flex; justify-content: space-between; align-items: center; gap: 0.6rem; }
+  button {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 0.55rem 1.1rem;
+    border: 1px solid var(--accent);
+    border-radius: 3px;
+    background: var(--accent);
+    color: var(--accent-ink);
     cursor: pointer;
   }
-  button:disabled { opacity: 0.5; cursor: default; }
+  button:disabled { opacity: 0.45; cursor: default; }
+  button:not(:disabled):hover { filter: brightness(1.08); }
+
+  #status {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    color: var(--ink-dim);
+    min-height: 1.2em;
+  }
+  #status.err { color: var(--err); }
+
   #answer {
     white-space: pre-wrap;
     min-height: 1.5em;
-    padding: 0.2rem 0;
+    padding: 1rem 1.1rem;
+    margin-top: 1rem;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 3px 3px 0;
   }
-  #status { font-size: 0.85rem; opacity: 0.6; margin-bottom: 0.5rem; min-height: 1.2em; }
-  #sources { margin-top: 2rem; }
-  #sources h2 { font-size: 0.85rem; text-transform: uppercase; opacity: 0.6; letter-spacing: 0.04em; }
-  details {
-    border: 1px solid #8884;
-    border-radius: 6px;
-    padding: 0.5rem 0.8rem;
-    margin-bottom: 0.5rem;
-  }
-  summary { cursor: pointer; font-size: 0.9rem; display: flex; gap: 0.5rem; align-items: baseline; }
-  summary .meta { opacity: 0.6; font-weight: normal; }
-  .badge {
-    font-size: 0.7rem;
-    padding: 0.1rem 0.4rem;
-    border-radius: 4px;
-    background: #16a34a33;
-    color: #16a34a;
+  #answer:empty { display: none; }
+
+  #sources { margin-top: 1.8rem; }
+  #sources h2 {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-dim);
     font-weight: 600;
+    margin-bottom: 0.6rem;
+  }
+  details {
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.45rem;
+    background: var(--panel);
+  }
+  summary {
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    display: flex;
+    gap: 0.6rem;
+    align-items: baseline;
+  }
+  summary .meta { color: var(--ink-dim); margin-left: auto; }
+  .badge {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    padding: 0.05rem 0.35rem;
+    border: 1px solid var(--ok);
+    border-radius: 2px;
+    color: var(--ok);
   }
   .chunk-text {
     margin-top: 0.6rem;
-    font-size: 0.85rem;
+    font-family: var(--mono);
+    font-size: 0.78rem;
     white-space: pre-wrap;
-    opacity: 0.85;
+    color: var(--ink-dim);
+    border-top: 1px dashed var(--line);
+    padding-top: 0.5rem;
   }
-  .error { color: #dc2626; }
+  .error { color: var(--err); }
+
+  footer {
+    margin-top: 3rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--line);
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--ink-dim);
+  }
+  footer a { color: var(--ink-dim); }
 </style>
 </head>
 <body>
-  <h1>RAG Query</h1>
+  <header>
+    <div>
+      <div class="wordmark">groundcheck</div>
+      <div class="tagline">retrieval-augmented Q&amp;A over the EU AI Act — evaluated, not vibes-checked</div>
+    </div>
+  </header>
+
+  <div id="configbar">loading live config…</div>
+
   <form id="form">
     <textarea id="question" placeholder="Ask a question about the indexed documents…" required></textarea>
-    <button id="submit" type="submit">Ask</button>
+    <div class="row">
+      <div id="status"></div>
+      <button id="submit" type="submit">Run query</button>
+    </div>
   </form>
-  <div id="status"></div>
+
   <div id="answer"></div>
   <div id="sources"></div>
+
+  <footer>
+    every module above is swappable and A/B tested —
+    <a href="https://github.com/rohitbhatia88888-a11y/Groundcheck" target="_blank" rel="noopener">results &amp; source on GitHub</a>
+  </footer>
 
 <script>
 const form = document.getElementById('form');
@@ -84,6 +223,23 @@ const submitBtn = document.getElementById('submit');
 const statusEl = document.getElementById('status');
 const answerEl = document.getElementById('answer');
 const sourcesEl = document.getElementById('sources');
+const configbarEl = document.getElementById('configbar');
+
+(async function loadConfig() {
+  try {
+    const res = await fetch('/config');
+    if (!res.ok) throw new Error();
+    const c = await res.json();
+    configbarEl.innerHTML =
+      `config <b>${c.name}</b>` +
+      `<span class="sep">·</span>retrieval <b>${c.retrieval}</b>` +
+      `<span class="sep">·</span>rerank <b>${c.reranker}</b>` +
+      `<span class="sep">·</span>top_k <b>${c.retrieval_top_k}/${c.rerank_top_k}</b>` +
+      `<span class="sep">·</span>generator <b>${c.generator}</b>`;
+  } catch {
+    configbarEl.textContent = 'live config unavailable';
+  }
+})();
 
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -91,9 +247,11 @@ form.addEventListener('submit', async (e) => {
   if (!question) return;
 
   submitBtn.disabled = true;
-  statusEl.textContent = 'Retrieving…';
+  statusEl.classList.remove('err');
+  statusEl.textContent = 'retrieving…';
   answerEl.textContent = '';
   sourcesEl.innerHTML = '';
+  const startedAt = performance.now();
 
   try {
     const res = await fetch('/query', {
@@ -103,19 +261,22 @@ form.addEventListener('submit', async (e) => {
     });
 
     if (res.status === 429) {
-      statusEl.innerHTML = '<span class="error">Rate limit reached — wait a moment and try again.</span>';
+      statusEl.classList.add('err');
+      statusEl.textContent = 'rate limit reached — wait a moment and try again';
       return;
     }
     if (res.status === 503) {
-      statusEl.innerHTML = '<span class="error">Still indexing documents — try again in a moment.</span>';
+      statusEl.classList.add('err');
+      statusEl.textContent = 'still indexing documents — try again shortly';
       return;
     }
     if (!res.ok) {
-      statusEl.innerHTML = `<span class="error">Request failed (${res.status}).</span>`;
+      statusEl.classList.add('err');
+      statusEl.textContent = `request failed (${res.status})`;
       return;
     }
 
-    statusEl.textContent = 'Answering…';
+    statusEl.textContent = 'answering…';
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
@@ -130,23 +291,27 @@ form.addEventListener('submit', async (e) => {
         const line = buffer.slice(0, newlineIndex);
         buffer = buffer.slice(newlineIndex + 1);
         if (!line.trim()) continue;
-        handleEvent(JSON.parse(line));
+        handleEvent(JSON.parse(line), startedAt);
       }
     }
   } catch (err) {
-    statusEl.innerHTML = `<span class="error">${err}</span>`;
+    statusEl.classList.add('err');
+    statusEl.textContent = String(err);
   } finally {
     submitBtn.disabled = false;
   }
 });
 
-function handleEvent(event) {
+function handleEvent(event, startedAt) {
   if (event.type === 'delta') {
     answerEl.textContent += event.text;
   } else if (event.type === 'error') {
-    statusEl.innerHTML = `<span class="error">${event.message}</span>`;
+    statusEl.classList.add('err');
+    statusEl.textContent = event.message;
   } else if (event.type === 'done') {
-    statusEl.textContent = '';
+    const seconds = ((performance.now() - startedAt) / 1000).toFixed(2);
+    statusEl.classList.remove('err');
+    statusEl.textContent = `answered in ${seconds}s`;
     renderSources(event.context, event.unsupported_citation_markers);
   }
 }
@@ -156,7 +321,7 @@ function renderSources(context, unsupported) {
   if (!context || context.length === 0) return;
 
   const heading = document.createElement('h2');
-  heading.textContent = `Sources (${context.length})`;
+  heading.textContent = `sources (${context.length})`;
   sourcesEl.appendChild(heading);
 
   for (const chunk of context) {
@@ -180,8 +345,9 @@ function renderSources(context, unsupported) {
     const warn = document.createElement('div');
     warn.className = 'error';
     warn.style.marginTop = '0.8rem';
-    warn.style.fontSize = '0.85rem';
-    warn.textContent = `Warning: answer cited unrecognized id(s): ${unsupported.join(', ')}`;
+    warn.style.fontFamily = 'var(--mono)';
+    warn.style.fontSize = '0.75rem';
+    warn.textContent = `warning: answer cited unrecognized id(s): ${unsupported.join(', ')}`;
     sourcesEl.appendChild(warn);
   }
 }

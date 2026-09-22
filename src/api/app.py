@@ -93,6 +93,27 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
+@app.get("/config")
+async def config_summary(request: Request) -> JSONResponse:
+    """Read-only summary of the config currently driving this deploy — no
+    secrets, just the swappable-module choices (see CLAUDE.md), so the
+    frontend can show which experiment is actually live instead of pretending
+    there's only ever one way this pipeline runs."""
+    config: ExperimentConfig = request.app.state.config
+    return JSONResponse(
+        {
+            "name": config.name,
+            "chunker": config.chunker.type,
+            "embedder": config.embedder.type,
+            "retrieval": config.vector_store.type,
+            "reranker": config.reranker.type,
+            "generator": config.generator.type,
+            "retrieval_top_k": config.retrieval_top_k,
+            "rerank_top_k": config.rerank_top_k,
+        }
+    )
+
+
 @app.get("/health")
 async def health(request: Request) -> JSONResponse:
     if not request.app.state.ready.is_set():
