@@ -1,0 +1,22 @@
+# Runs on the VM next to the Folio demo (~/rag-demo), sharing its Caddy for HTTPS: joining Folio's
+# Docker network lets that Caddy reach this container as groundcheck:8080.
+# OPENROUTER_API_KEY comes from the .env file next to this one (created by deploy.sh).
+services:
+  groundcheck:
+    build:
+      context: ./src
+    image: groundcheck
+    restart: unless-stopped
+    # --proxy-headers so the per-IP rate limit sees the visitor's address, not Caddy's.
+    command: [".venv/bin/uvicorn", "src.api.app:app", "--host", "0.0.0.0", "--port", "8080",
+              "--proxy-headers", "--forwarded-allow-ips", "*"]
+    environment:
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      RAG_CONFIG_PATH: configs/hybrid.yaml
+    mem_limit: 3g
+    expose: ["8080"]
+
+networks:
+  default:
+    name: rag-demo_default
+    external: true
