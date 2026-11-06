@@ -4,459 +4,806 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Groundcheck</title>
+<meta name="description" content="Question answering over the EU AI Act where every citation is checked against the retrieved source, backed by a frozen evaluation set.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
+  /* Design tokens: see design-system/groundcheck/MASTER.md */
   :root {
     color-scheme: light;
-    --bg: #ffffff;
-    --panel: #faf8f4;
-    --ink: #1c1a16;
-    --ink-dim: #6b6558;
-    --line: #dcd6c9;
-    --accent: #b45309;
+    --bg: #f6f7f9;
+    --surface: #ffffff;
+    --surface-2: #eef1f5;
+    --border: #d8dee6;
+    --ink: #0f172a;
+    --ink-dim: #475569;
+    --accent: #15803d;
     --accent-ink: #ffffff;
-    --ok: #15803d;
-    --err: #b91c1c;
-    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --accent-soft: #dcfce7;
+    --danger: #b91c1c;
+    --danger-soft: #fee2e2;
+    --warn: #a16207;
+    --ring: #0f172a;
+
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+    --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
+    --space-5: 24px; --space-6: 32px; --space-7: 48px; --space-8: 64px;
+    --radius: 8px;
+    --radius-sm: 4px;
+    --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #0b1120;
+      --surface: #111a2d;
+      --surface-2: #18233a;
+      --border: #273450;
+      --ink: #e6edf7;
+      --ink-dim: #9aa8bd;
+      --accent: #22c55e;
+      --accent-ink: #052e16;
+      --accent-soft: #0f2e1d;
+      --danger: #f87171;
+      --danger-soft: #3a1518;
+      --warn: #fbbf24;
+      --ring: #e6edf7;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #0b1120;
+    --surface: #111a2d;
+    --surface-2: #18233a;
+    --border: #273450;
+    --ink: #e6edf7;
+    --ink-dim: #9aa8bd;
+    --accent: #22c55e;
+    --accent-ink: #052e16;
+    --accent-soft: #0f2e1d;
+    --danger: #f87171;
+    --danger-soft: #3a1518;
+    --warn: #fbbf24;
+    --ring: #e6edf7;
   }
 
   * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
   body {
+    margin: 0;
     background: var(--bg);
     color: var(--ink);
-    font-family: var(--sans);
-    max-width: 1180px;
-    margin: 0 auto;
-    padding: 0 1.25rem 4rem;
-    line-height: 1.5;
+    font: 400 16px/1.6 var(--sans);
   }
+  .wrap { max-width: 1160px; margin: 0 auto; padding: 0 var(--space-4); }
+  a { color: inherit; }
+  :focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; border-radius: var(--radius-sm); }
+  .mono { font-family: var(--mono); }
+  .label {
+    font: 600 12px/1.4 var(--mono);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    margin: 0;
+  }
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+  svg.icon { width: 16px; height: 16px; flex-shrink: 0; }
 
-  a:focus-visible, button:focus-visible, summary:focus-visible, textarea:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
+  /* ---------- Top bar ---------- */
+  .topbar {
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
   }
-
-  @keyframes fadeInUp {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-  header, .aside, .main form, #answer:not(:empty), .sources-grid details {
-    animation: fadeInUp 500ms ease both;
-  }
-  .aside { animation-delay: 80ms; }
-  .main form { animation-delay: 140ms; }
-
-  header {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-    padding: 1.6rem 0 1rem;
-    border-bottom: 1px solid var(--line);
-    margin-bottom: 1.75rem;
+  .topbar .wrap {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: var(--space-3); min-height: 60px;
   }
   .wordmark {
-    font-family: var(--mono);
-    font-size: 1rem;
-    font-weight: 700;
-    letter-spacing: 0.02em;
+    display: flex; align-items: center; gap: var(--space-2); min-height: 44px;
+    font: 600 16px/1 var(--mono); text-decoration: none;
   }
-  .wordmark::before { content: "[ "; color: var(--accent); }
-  .wordmark::after { content: " ]"; color: var(--accent); }
-  .intro { font-size: 0.92rem; color: var(--ink); max-width: 62ch; margin-top: 0.5rem; }
+  @media (max-width: 420px) {
+    /* Keep the top bar on one line: the dot stays, the words stay readable to screen readers. */
+    #statusText { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    .pill { padding: 8px; }
+  }
+  .wordmark .mark {
+    width: 22px; height: 22px; border-radius: 5px;
+    background: var(--accent); color: var(--accent-ink);
+    display: grid; place-items: center;
+  }
+  .wordmark .mark svg { width: 14px; height: 14px; }
+  .top-actions { display: flex; align-items: center; gap: var(--space-2); }
+  .pill {
+    display: inline-flex; align-items: center; gap: var(--space-2);
+    font: 500 13px/1 var(--mono);
+    padding: 7px 10px; border: 1px solid var(--border); border-radius: 999px;
+    color: var(--ink-dim); background: var(--surface-2); white-space: nowrap;
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-dim); }
+  .dot.ok { background: var(--accent); }
+  .dot.wait { background: var(--warn); }
+  .dot.down { background: var(--danger); }
+  .icon-btn {
+    display: inline-grid; place-items: center;
+    min-width: 44px; min-height: 44px; padding: 0 var(--space-2);
+    border: 1px solid transparent; border-radius: var(--radius);
+    background: transparent; color: var(--ink-dim); cursor: pointer;
+    text-decoration: none; transition: background 150ms var(--ease), color 150ms var(--ease);
+  }
+  .icon-btn:hover { background: var(--surface-2); color: var(--ink); }
+  .icon-btn svg { width: 18px; height: 18px; }
 
-  /* --- Layout: sidebar "system" panel + main column, sources full-width below --- */
-  .layout {
-    display: grid;
-    grid-template-columns: 260px minmax(0, 1fr);
-    gap: 1.75rem;
-    align-items: start;
+  /* ---------- Hero + ask ---------- */
+  .hero { padding: var(--space-7) 0 var(--space-5); }
+  .hero h1 {
+    font: 600 clamp(28px, 4vw, 40px)/1.15 var(--sans);
+    letter-spacing: -0.015em; margin: var(--space-3) 0 var(--space-3);
+    max-width: 22ch; text-wrap: balance;
   }
-  .aside { grid-column: 1; }
-  .main { grid-column: 2; min-width: 0; }
-  .sources-section { grid-column: 1 / -1; margin-top: 2rem; }
+  .hero p.lede { color: var(--ink-dim); max-width: 64ch; margin: 0; font-size: 17px; }
+  .hero p.lede strong { color: var(--ink); font-weight: 600; }
 
-  @media (max-width: 880px) {
-    .layout { grid-template-columns: 1fr; }
-    .aside, .main, .sources-section { grid-column: 1; }
+  .ask {
+    margin-top: var(--space-5);
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: var(--space-3);
+    transition: border-color 150ms var(--ease), box-shadow 150ms var(--ease);
+  }
+  .ask:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .ask label { display: block; padding: var(--space-1) var(--space-2) 0; }
+  .ask textarea {
+    width: 100%; border: 0; background: transparent; color: var(--ink);
+    font: 400 17px/1.5 var(--sans); resize: vertical; min-height: 72px;
+    padding: var(--space-2); outline: none;
+  }
+  .ask textarea::placeholder { color: var(--ink-dim); opacity: 0.85; }
+  .ask-row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: var(--space-3); padding: var(--space-1) var(--space-1) 0; flex-wrap: wrap;
+  }
+  .hint { font: 400 13px/1.4 var(--mono); color: var(--ink-dim); padding-left: var(--space-1); }
+  kbd {
+    font: 500 12px/1 var(--mono); padding: 2px 5px; border: 1px solid var(--border);
+    border-bottom-width: 2px; border-radius: 4px; background: var(--surface-2);
+  }
+  .run-btn {
+    display: inline-flex; align-items: center; gap: var(--space-2);
+    min-height: 44px; padding: 0 var(--space-5);
+    font: 600 15px/1 var(--sans);
+    color: var(--accent-ink); background: var(--accent);
+    border: 0; border-radius: var(--radius); cursor: pointer;
+    transition: filter 150ms var(--ease), transform 100ms var(--ease);
+  }
+  .run-btn:hover:not(:disabled) { filter: brightness(1.08); }
+  .run-btn:active:not(:disabled) { transform: translateY(1px); }
+  .run-btn:disabled { opacity: 0.55; cursor: progress; }
+
+  .examples { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-3); align-items: center; }
+  .examples .label { margin-right: var(--space-1); }
+  .chip {
+    font: 400 14px/1.3 var(--sans); text-align: left;
+    min-height: 36px; padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--border); border-radius: 999px;
+    background: var(--surface); color: var(--ink); cursor: pointer;
+    transition: border-color 150ms var(--ease), background 150ms var(--ease);
+  }
+  .chip:hover { border-color: var(--accent); background: var(--surface-2); }
+
+  /* ---------- Run: answer + trace ---------- */
+  .run { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: var(--space-5); align-items: start; padding-bottom: var(--space-6); }
+  @media (max-width: 900px) { .run { grid-template-columns: 1fr; } }
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: var(--space-5);
+  }
+  .card-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-3); flex-wrap: wrap; }
+
+  .answer { font-size: 17px; line-height: 1.7; max-width: 70ch; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .answer.placeholder { color: var(--ink-dim); font-size: 15px; }
+  .answer .cursor {
+    display: inline-block; width: 0.55em; height: 1.1em; vertical-align: -0.15em;
+    background: var(--accent); margin-left: 2px; animation: blink 1s steps(2) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+  .cite {
+    display: inline-flex; align-items: center; gap: 4px;
+    font: 500 12px/1 var(--mono); vertical-align: 0.1em;
+    padding: 4px 7px; margin: 0 2px; border-radius: var(--radius-sm);
+    border: 1px solid var(--accent); color: var(--accent); background: var(--accent-soft);
+    cursor: pointer; text-decoration: none; white-space: nowrap;
+  }
+  .cite:hover { filter: brightness(1.1); }
+  .cite.bad { border-color: var(--danger); color: var(--danger); background: var(--danger-soft); cursor: help; }
+  .cite svg { width: 12px; height: 12px; }
+
+  .alert {
+    display: flex; gap: var(--space-2); align-items: flex-start;
+    margin-top: var(--space-4); padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius); border: 1px solid var(--danger);
+    background: var(--danger-soft); color: var(--ink); font-size: 14px;
+  }
+  .alert svg { color: var(--danger); margin-top: 3px; }
+
+  /* trace */
+  .trace ol { list-style: none; margin: 0; padding: 0; }
+  .step { display: grid; grid-template-columns: 20px 1fr; gap: var(--space-3); position: relative; padding-bottom: var(--space-4); }
+  .step:last-child { padding-bottom: 0; }
+  .step::before {
+    content: ""; position: absolute; left: 9px; top: 22px; bottom: 2px;
+    width: 2px; background: var(--border);
+  }
+  .step:last-child::before { display: none; }
+  .step .node {
+    width: 20px; height: 20px; border-radius: 50%; margin-top: 2px;
+    border: 2px solid var(--border); background: var(--surface);
+    display: grid; place-items: center; color: var(--accent-ink);
+  }
+  .step .node svg { width: 12px; height: 12px; display: none; }
+  .step[data-state="active"] .node { border-color: var(--warn); }
+  .step[data-state="active"] .node::after {
+    content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--warn);
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+  .step[data-state="done"] .node { border-color: var(--accent); background: var(--accent); }
+  .step[data-state="done"] .node svg { display: block; }
+  .step[data-state="fail"] .node { border-color: var(--danger); background: var(--danger); color: #fff; }
+  .step[data-state="fail"] .node svg { display: block; }
+  @keyframes pulse { 50% { transform: scale(0.6); opacity: 0.6; } }
+  .step h3 { margin: 0; font: 600 14px/1.4 var(--mono); }
+  .step p { margin: 2px 0 0; font: 400 13px/1.45 var(--mono); color: var(--ink-dim); overflow-wrap: anywhere; }
+
+  .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; margin-top: var(--space-5); background: var(--border); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .metric { background: var(--surface); padding: var(--space-3); }
+  .metric .v { font: 600 20px/1.2 var(--mono); font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .metric .v.good { color: var(--accent); }
+  .metric .v.bad { color: var(--danger); }
+
+  /* sources */
+  .sources { margin-top: var(--space-5); }
+  .sources-list { display: grid; gap: var(--space-2); margin-top: var(--space-3); }
+  .src {
+    border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface);
+    transition: border-color 200ms var(--ease), box-shadow 200ms var(--ease);
+    scroll-margin-top: var(--space-5);
+  }
+  .src.cited { border-left: 3px solid var(--accent); }
+  .src.flash { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .src summary {
+    list-style: none; cursor: pointer; display: grid;
+    grid-template-columns: 28px minmax(0, 1fr) auto; gap: var(--space-3); align-items: center;
+    padding: var(--space-3) var(--space-4); min-height: 48px;
+  }
+  .src summary::-webkit-details-marker { display: none; }
+  .rank { font: 600 13px/1 var(--mono); color: var(--ink-dim); }
+  .src-id { font: 500 13px/1.4 var(--mono); overflow-wrap: anywhere; }
+  .src-id .page { color: var(--ink-dim); }
+  .src-right { display: flex; align-items: center; gap: var(--space-3); }
+  .score { display: flex; align-items: center; gap: var(--space-2); font: 400 12px/1 var(--mono); color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+  .bar { width: 64px; height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--accent); opacity: 0.7; }
+  .tag { font: 600 11px/1 var(--mono); letter-spacing: 0.06em; text-transform: uppercase; padding: 4px 6px; border-radius: var(--radius-sm); color: var(--accent); background: var(--accent-soft); }
+  .tag.muted { color: var(--ink-dim); background: var(--surface-2); }
+  .chev { width: 16px; height: 16px; color: var(--ink-dim); transition: transform 200ms var(--ease); }
+  .src[open] .chev { transform: rotate(180deg); }
+  .src-body {
+    margin: 0 var(--space-4) var(--space-4); padding-top: var(--space-3);
+    border-top: 1px dashed var(--border);
+    font: 400 14px/1.65 var(--sans); color: var(--ink-dim); white-space: pre-wrap; overflow-wrap: anywhere;
+  }
+  @media (max-width: 560px) {
+    .src summary { grid-template-columns: 24px minmax(0, 1fr); }
+    .src-right { grid-column: 2; justify-content: space-between; }
   }
 
-  /* --- System status card (sidebar) --- */
-  .system-card {
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    background: var(--panel);
-    padding: 0.9rem 1rem;
-    position: sticky;
-    top: 1.25rem;
-  }
-  .system-card h2 {
-    margin: 0 0 0.7rem;
-    font-family: var(--mono);
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--ink-dim);
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 0.45rem;
-  }
-  .live-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--ok);
-    flex-shrink: 0;
-    animation: pulse 2s ease-in-out infinite;
-  }
-  .live-dot.down { background: var(--err); animation: none; }
+  /* ---------- Evaluation ---------- */
+  .eval { border-top: 1px solid var(--border); padding: var(--space-7) 0; }
+  .eval h2 { font: 600 clamp(22px, 3vw, 28px)/1.25 var(--sans); letter-spacing: -0.01em; margin: var(--space-2) 0 var(--space-3); }
+  .eval > .wrap > p { color: var(--ink-dim); max-width: 70ch; margin: 0 0 var(--space-5); }
+  .facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); margin-bottom: var(--space-5); }
+  @media (max-width: 800px) { .facts { grid-template-columns: 1fr; } }
+  .fact h3 { margin: var(--space-2) 0 var(--space-1); font: 600 16px/1.35 var(--sans); }
+  .fact p { margin: 0; color: var(--ink-dim); font-size: 15px; }
+  .fact .big { font: 600 28px/1.1 var(--mono); color: var(--accent); font-variant-numeric: tabular-nums; }
+
+  .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; min-width: 760px; font: 400 14px/1.4 var(--mono); font-variant-numeric: tabular-nums; }
+  caption { text-align: left; padding: var(--space-3) var(--space-4); color: var(--ink-dim); font: 400 13px/1.5 var(--sans); caption-side: bottom; border-top: 1px solid var(--border); }
+  th, td { padding: var(--space-3) var(--space-4); text-align: right; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; }
+  thead th { font: 600 12px/1.3 var(--mono); letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-dim); background: var(--surface-2); }
+  thead tr.groups th { text-align: center; border-bottom: 0; padding-bottom: 0; }
+  thead tr.groups th:first-child { text-align: left; }
+  tbody tr:last-child td { border-bottom: 0; }
+  tr.live td { background: var(--accent-soft); }
+  tr.regress td.cv { color: var(--danger); font-weight: 600; }
+  td.best { color: var(--accent); font-weight: 600; }
+  td .sub { display: block; font: 400 12px/1.3 var(--sans); color: var(--ink-dim); margin-top: 2px; white-space: normal; }
+  .na { color: var(--ink-dim); }
+  .sep { border-left: 1px solid var(--border); }
+
+  footer { border-top: 1px solid var(--border); padding: var(--space-5) 0 var(--space-6); color: var(--ink-dim); font-size: 14px; }
+  footer .wrap { display: flex; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; }
+
   @media (prefers-reduced-motion: reduce) {
-    .live-dot,
-    header, .aside, .main form, #answer, .sources-grid details {
-      animation: none !important;
-    }
-    details, button { transition: none !important; }
+    *, *::before, *::after { animation: none !important; transition: none !important; }
   }
-  @keyframes pulse {
-    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 color-mix(in srgb, var(--ok) 45%, transparent); }
-    50% { opacity: 0.75; box-shadow: 0 0 0 4px transparent; }
-  }
-  .stat-row {
-    display: flex;
-    justify-content: space-between;
-    gap: 0.6rem;
-    font-family: var(--mono);
-    font-size: 0.76rem;
-    padding: 0.32rem 0;
-    border-top: 1px dashed var(--line);
-  }
-  .stat-row:first-of-type { border-top: none; }
-  .stat-row dt { color: var(--ink-dim); }
-  .stat-row dd { margin: 0; color: var(--ink); font-weight: 600; text-align: right; }
-  .system-card dl { margin: 0; }
-  .system-card .gh-link {
-    display: block;
-    margin-top: 0.8rem;
-    padding-top: 0.7rem;
-    border-top: 1px solid var(--line);
-    font-family: var(--mono);
-    font-size: 0.72rem;
-    color: var(--ink-dim);
-  }
-
-  /* --- Query form --- */
-  form { display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 0.6rem; }
-  textarea {
-    font: inherit;
-    font-size: 0.95rem;
-    padding: 0.7rem 0.85rem;
-    background: var(--panel);
-    color: var(--ink);
-    border: 1px solid var(--line);
-    border-radius: 5px;
-    resize: vertical;
-    min-height: 3.2rem;
-  }
-  textarea:focus { border-color: var(--accent); }
-  .row { display: flex; justify-content: space-between; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
-  button {
-    font-family: var(--mono);
-    font-size: 0.78rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    padding: 0.65rem 1.2rem;
-    min-height: 44px;
-    border: 1px solid var(--accent);
-    border-radius: 5px;
-    background: var(--accent);
-    color: var(--accent-ink);
-    cursor: pointer;
-    transition: transform 120ms ease, filter 150ms ease;
-  }
-  button:disabled { opacity: 0.45; cursor: default; }
-  button:not(:disabled):hover { filter: brightness(1.08); }
-  button:not(:disabled):active { transform: scale(0.96); }
-
-  #status {
-    font-family: var(--mono);
-    font-size: 0.78rem;
-    color: var(--ink-dim);
-    min-height: 1.2em;
-  }
-  #status.err { color: var(--err); }
-
-  #answer {
-    white-space: pre-wrap;
-    max-width: 70ch;
-    min-height: 1.5em;
-    padding: 1rem 1.1rem;
-    margin-top: 1rem;
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-left: 3px solid var(--accent);
-    border-radius: 0 6px 6px 0;
-  }
-  #answer:empty { display: none; }
-
-  /* --- Sources: bento-style card grid --- */
-  .sources-section h2 {
-    font-family: var(--mono);
-    font-size: 0.72rem;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--ink-dim);
-    font-weight: 600;
-    margin-bottom: 0.7rem;
-  }
-  .sources-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-    gap: 0.7rem;
-  }
-  details {
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    padding: 0.55rem 0.8rem;
-    background: var(--panel);
-    transition: border-color 150ms ease, transform 150ms ease, box-shadow 150ms ease;
-  }
-  details:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(28, 26, 22, 0.08);
-  }
-  details.cited {
-    grid-column: span 2;
-    border-color: var(--ok);
-  }
-  @media (max-width: 520px) {
-    details.cited { grid-column: span 1; }
-  }
-  summary {
-    cursor: pointer;
-    font-family: var(--mono);
-    font-size: 0.8rem;
-    display: flex;
-    gap: 0.6rem;
-    align-items: baseline;
-    flex-wrap: wrap;
-  }
-  summary .meta { color: var(--ink-dim); margin-left: auto; }
-  .badge {
-    font-family: var(--mono);
-    font-size: 0.68rem;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-    padding: 0.05rem 0.35rem;
-    border: 1px solid var(--ok);
-    border-radius: 3px;
-    color: var(--ok);
-  }
-  .chunk-text {
-    margin-top: 0.6rem;
-    font-family: var(--mono);
-    font-size: 0.78rem;
-    white-space: pre-wrap;
-    color: var(--ink-dim);
-    border-top: 1px dashed var(--line);
-    padding-top: 0.5rem;
-    overflow-wrap: anywhere;
-  }
-  .error { color: var(--err); }
 </style>
 </head>
 <body>
-  <header>
-    <div>
-      <div class="wordmark">groundcheck</div>
-      <p class="intro">
-        Ask a question and get an answer grounded in the actual text, with every claim
-        traced back to a cited chunk. Every stage of the pipeline (chunking, retrieval,
-        reranking) is a swappable module measured against the others; the panel on the
-        left shows exactly which combination answered your question.
-      </p>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4v16l13-8z"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></symbol>
+  <symbol id="i-gh" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5a11.5 11.5 0 0 0-3.6 22.4c.6.1.8-.3.8-.6v-2c-3.2.7-3.9-1.5-3.9-1.5-.5-1.3-1.3-1.7-1.3-1.7-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.4 11.4 0 0 1 6 0C17.3 4.6 18.3 5 18.3 5c.6 1.7.2 2.9.1 3.2.8.8 1.2 1.8 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.2c0 .3.2.7.8.6A11.5 11.5 0 0 0 12 .5z"/></symbol>
+</svg>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="wordmark" href="/" aria-label="Groundcheck home">
+      <span class="mark" aria-hidden="true"><svg><use href="#i-check"/></svg></span>
+      groundcheck
+    </a>
+    <div class="top-actions">
+      <span class="pill" id="statusPill" role="status" aria-live="polite">
+        <span class="dot" id="statusDot"></span><span id="statusText">connecting</span>
+      </span>
+      <button class="icon-btn" id="themeBtn" type="button" aria-label="Switch to dark theme">
+        <svg aria-hidden="true"><use href="#i-moon"/></svg>
+      </button>
+      <a class="icon-btn" href="https://github.com/rohitbhatia88888-a11y/Groundcheck" target="_blank" rel="noopener" aria-label="Source on GitHub">
+        <svg aria-hidden="true"><use href="#i-gh"/></svg>
+      </a>
     </div>
-  </header>
+  </div>
+</header>
 
-  <div class="layout">
-    <aside class="aside">
-      <div class="system-card">
-        <h2><span class="live-dot" id="livedot"></span>system</h2>
-        <dl id="configstats">
-          <div class="stat-row"><dt>status</dt><dd>loading…</dd></div>
-        </dl>
-        <a class="gh-link" href="https://github.com/rohitbhatia88888-a11y/Groundcheck" target="_blank" rel="noopener">
-          every module is swappable. Results &amp; source on GitHub →
-        </a>
-      </div>
-    </aside>
+<main>
+  <section class="hero">
+    <div class="wrap">
+      <p class="label">RAG over the EU AI Act · Regulation (EU) 2024/1689</p>
+      <h1>Answers you can check, citation by citation.</h1>
+      <p class="lede">
+        Every claim ends in a citation, and every citation is <strong>verified against the
+        passages retrieval actually returned</strong>. Fabricated ones are flagged, not hidden.
+        The pipeline below was picked by a frozen 18-question evaluation set, not by feel.
+      </p>
 
-    <div class="main">
-      <form id="form">
-        <textarea id="question" placeholder="Ask a question about the indexed documents…" required></textarea>
-        <div class="row">
-          <div id="status"></div>
-          <button id="submit" type="submit">Run query</button>
+      <form class="ask" id="form">
+        <label class="label" for="question">Question</label>
+        <textarea id="question" maxlength="2000" required
+          placeholder="e.g. What must distributors verify before making a high-risk AI system available?"></textarea>
+        <div class="ask-row">
+          <span class="hint"><kbd>⌘</kbd> <kbd>Enter</kbd> to run · 10 queries/min</span>
+          <button class="run-btn" id="runBtn" type="submit">
+            <svg class="icon" aria-hidden="true"><use href="#i-play"/></svg><span id="runLabel">Run query</span>
+          </button>
         </div>
       </form>
 
-      <div id="answer"></div>
+      <div class="examples" aria-label="Example questions from the golden set">
+        <span class="label">From the golden set</span>
+        <button class="chip" type="button">What is the purpose of Regulation (EU) 2019/816?</button>
+        <button class="chip" type="button">What are some systemic risks posed by general-purpose AI models?</button>
+        <button class="chip" type="button">What must be declared in the accompanying instructions of use for high-risk AI systems?</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap run" aria-label="Query run">
+    <div>
+      <article class="card" aria-labelledby="answerHead">
+        <div class="card-head">
+          <h2 class="label" id="answerHead">Answer</h2>
+          <span class="tag muted" id="answerTag">idle</span>
+        </div>
+        <div class="answer placeholder" id="answer" aria-live="off">Run a query to see a grounded answer. Citations appear as chips you can click to jump to the passage they point at.</div>
+        <div id="alertSlot"></div>
+      </article>
+
+      <section class="sources" id="sources" hidden aria-labelledby="sourcesHead">
+        <div class="card-head">
+          <h2 class="label" id="sourcesHead">Retrieved context</h2>
+          <span class="hint" id="sourcesMeta"></span>
+        </div>
+        <div class="sources-list" id="sourcesList"></div>
+      </section>
     </div>
 
-    <section class="sources-section" id="sourcesSection" hidden>
-      <h2 id="sourcesHeading">sources</h2>
-      <div class="sources-grid" id="sources"></div>
-    </section>
+    <aside class="card trace" aria-labelledby="traceHead">
+      <div class="card-head">
+        <h2 class="label" id="traceHead">Run trace</h2>
+        <span class="hint" id="cfgName">config: …</span>
+      </div>
+      <ol>
+        <li class="step" id="stRetrieve" data-state="idle">
+          <span class="node" aria-hidden="true"><svg><use href="#i-check"/></svg></span>
+          <div><h3>retrieve</h3><p id="stRetrieveP">waiting for config…</p></div>
+        </li>
+        <li class="step" id="stGenerate" data-state="idle">
+          <span class="node" aria-hidden="true"><svg><use href="#i-check"/></svg></span>
+          <div><h3>generate</h3><p id="stGenerateP">openrouter · streaming</p></div>
+        </li>
+        <li class="step" id="stVerify" data-state="idle">
+          <span class="node" aria-hidden="true"><svg><use href="#i-check"/></svg></span>
+          <div><h3>verify citations</h3><p id="stVerifyP">every [id] checked against retrieved chunks</p></div>
+        </li>
+      </ol>
+      <div class="metrics" aria-label="Metrics for this run">
+        <div class="metric"><p class="label">first token</p><div class="v" id="mTtft">–</div></div>
+        <div class="metric"><p class="label">total</p><div class="v" id="mTotal">–</div></div>
+        <div class="metric"><p class="label">citations valid</p><div class="v" id="mValid">–</div></div>
+        <div class="metric"><p class="label">sources cited</p><div class="v" id="mCited">–</div></div>
+      </div>
+      <p class="sr-only" id="runStatus" role="status" aria-live="polite"></p>
+    </aside>
+  </section>
+
+  <section class="eval" aria-labelledby="evalHead">
+    <div class="wrap">
+      <p class="label">Evaluation first</p>
+      <h2 id="evalHead">Why this pipeline, and how we know</h2>
+      <p>
+        Every config ran against the same frozen golden set with the same generator and embedder.
+        Retrieval and generation are scored separately, so a change that helps one and hurts the
+        other shows up as two numbers moving, not one blended score.
+      </p>
+
+      <div class="facts">
+        <div class="card fact">
+          <div class="big">18</div>
+          <h3>Frozen golden set</h3>
+          <p>Questions with page-level ground truth, locked by SHA-256 so scores can't be tuned by editing the test.</p>
+        </div>
+        <div class="card fact">
+          <div class="big">13→16</div>
+          <h3>Top-1 hits with hybrid search</h3>
+          <p>BM25 + dense retrieval fixed the regulation-number lookups dense embeddings kept missing.</p>
+        </div>
+        <div class="card fact">
+          <div class="big">0%→100%</div>
+          <h3>Citation validity, caught and fixed</h3>
+          <p>A prompt change made the model cite fake chunk IDs. Every other metric stayed flat; only citation validity caught it.</p>
+        </div>
+      </div>
+
+      <div class="table-wrap" tabindex="0" role="region" aria-labelledby="evalHead">
+        <table>
+          <caption>Golden set <span class="mono">a16d0944…</span> · 18 questions · generator gpt-4o-mini · embedder all-MiniLM-L6-v2 · numbers copied from results/experiments.csv.</caption>
+          <thead>
+            <tr class="groups">
+              <th scope="col"></th>
+              <th scope="colgroup" colspan="3" class="sep">Retrieval</th>
+              <th scope="colgroup" colspan="3" class="sep">Generation</th>
+              <th scope="colgroup" colspan="2" class="sep">Ops</th>
+            </tr>
+            <tr>
+              <th scope="col">Run</th>
+              <th scope="col" class="sep">recall@1</th><th scope="col">recall@3</th><th scope="col">MRR</th>
+              <th scope="col" class="sep">faithful</th><th scope="col">relevance</th><th scope="col">cite valid</th>
+              <th scope="col" class="sep">p50</th><th scope="col">$/query</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>baseline<span class="sub">dense only</span></td>
+              <td class="sep">72.2%</td><td>72.2%</td><td>0.736</td>
+              <td class="sep">0.889</td><td>0.889</td><td class="na">n/a</td>
+              <td class="sep">2.08s</td><td>$0.00023</td>
+            </tr>
+            <tr>
+              <td>reranked<span class="sub">dense + cross-encoder</span></td>
+              <td class="sep">72.2%</td><td>77.8%</td><td>0.750</td>
+              <td class="sep">0.917</td><td>0.889</td><td class="na">n/a</td>
+              <td class="sep">2.46s</td><td>$0.00024</td>
+            </tr>
+            <tr>
+              <td>hybrid v1<span class="sub">BM25 + dense</span></td>
+              <td class="sep best">88.9%</td><td class="best">94.4%</td><td class="best">0.917</td>
+              <td class="sep best">1.000</td><td class="best">1.000</td><td class="na">n/a</td>
+              <td class="sep">1.85s</td><td>$0.00024</td>
+            </tr>
+            <tr class="regress">
+              <td>hybrid v2<span class="sub">stricter citation prompt</span></td>
+              <td class="sep best">88.9%</td><td class="best">94.4%</td><td class="best">0.917</td>
+              <td class="sep best">1.000</td><td class="best">1.000</td><td class="cv">0.0%</td>
+              <td class="sep">1.83s</td><td>$0.00025</td>
+            </tr>
+            <tr class="live">
+              <td><strong>hybrid v3</strong><span class="sub">prompt fixed · live now</span></td>
+              <td class="sep best">88.9%</td><td class="best">94.4%</td><td class="best">0.917</td>
+              <td class="sep best">1.000</td><td class="best">1.000</td><td class="best">100%</td>
+              <td class="sep">1.56s</td><td>$0.00027</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Groundcheck · FastAPI · Qdrant · BM25 + sentence-transformers · OpenRouter</span>
+    <a href="https://github.com/rohitbhatia88888-a11y/Groundcheck" target="_blank" rel="noopener">Source, configs and results on GitHub</a>
   </div>
+</footer>
 
 <script>
-const form = document.getElementById('form');
-const questionEl = document.getElementById('question');
-const submitBtn = document.getElementById('submit');
-const statusEl = document.getElementById('status');
-const answerEl = document.getElementById('answer');
-const sourcesEl = document.getElementById('sources');
-const sourcesSectionEl = document.getElementById('sourcesSection');
-const sourcesHeadingEl = document.getElementById('sourcesHeading');
-const configstatsEl = document.getElementById('configstats');
-const livedotEl = document.getElementById('livedot');
+const $ = (id) => document.getElementById(id);
+const form = $('form'), questionEl = $('question'), runBtn = $('runBtn'), runLabel = $('runLabel');
+const answerEl = $('answer'), answerTag = $('answerTag'), alertSlot = $('alertSlot');
+const sourcesEl = $('sources'), sourcesList = $('sourcesList'), sourcesMeta = $('sourcesMeta');
+const runStatus = $('runStatus');
+const CITE_RE = /\[([^\[\]\s]{3,})\]/g;
 
-function statRow(label, value) {
-  return `<div class="stat-row"><dt>${label}</dt><dd>${value}</dd></div>`;
+/* ---------- theme ---------- */
+const themeBtn = $('themeBtn');
+function currentTheme() {
+  const set = document.documentElement.dataset.theme;
+  if (set) return set;
+  return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
+function paintThemeBtn() {
+  const dark = currentTheme() === 'dark';
+  themeBtn.setAttribute('aria-label', dark ? 'Switch to light theme' : 'Switch to dark theme');
+  themeBtn.querySelector('use').setAttribute('href', dark ? '#i-sun' : '#i-moon');
+}
+try { const t = localStorage.getItem('gc-theme'); if (t) document.documentElement.dataset.theme = t; } catch {}
+paintThemeBtn();
+themeBtn.addEventListener('click', () => {
+  const next = currentTheme() === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = next;
+  try { localStorage.setItem('gc-theme', next); } catch {}
+  paintThemeBtn();
+});
 
-(async function loadConfig() {
+/* ---------- health + config ---------- */
+function setHealth(state, text) {
+  $('statusDot').className = 'dot ' + state;
+  $('statusText').textContent = text;
+}
+let config = null;
+async function pollHealth() {
+  try {
+    const res = await fetch('/health');
+    const body = await res.json().catch(() => ({}));
+    if (res.ok) { setHealth('ok', 'live · indexed'); return; }
+    if (res.status === 503) { setHealth('wait', 'indexing corpus'); setTimeout(pollHealth, 5000); return; }
+    setHealth('down', 'startup error');
+  } catch { setHealth('down', 'offline'); }
+}
+async function loadConfig() {
   try {
     const res = await fetch('/config');
     if (!res.ok) throw new Error();
-    const c = await res.json();
-    configstatsEl.innerHTML =
-      statRow('config', c.name) +
-      statRow('retrieval', c.retrieval) +
-      statRow('rerank', c.reranker) +
-      statRow('top_k', `${c.retrieval_top_k}/${c.rerank_top_k}`) +
-      statRow('generator', c.generator);
+    config = await res.json();
+    $('cfgName').textContent = 'config: ' + config.name;
+    $('stRetrieveP').textContent =
+      `${config.retrieval} · top-${config.retrieval_top_k}` +
+      (config.reranker === 'identity' ? ' · no reranker' : ` · ${config.reranker} → top-${config.rerank_top_k}`);
+    $('stGenerateP').textContent = `${config.generator} · streaming`;
   } catch {
-    configstatsEl.innerHTML = statRow('status', 'unavailable');
-    livedotEl.classList.add('down');
+    $('stRetrieveP').textContent = 'config unavailable';
   }
-})();
+}
+pollHealth(); loadConfig();
 
+/* ---------- examples + shortcut ---------- */
+document.querySelectorAll('.chip').forEach((chip) => {
+  chip.addEventListener('click', () => { questionEl.value = chip.textContent.trim(); form.requestSubmit(); });
+});
+questionEl.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); form.requestSubmit(); }
+});
+
+/* ---------- trace helpers ---------- */
+function step(id, state, text) {
+  const el = $(id);
+  el.dataset.state = state;
+  el.querySelector('.node use').setAttribute('href', state === 'fail' ? '#i-x' : '#i-check');
+  if (text) el.querySelector('p').textContent = text;
+}
+function metric(id, value, tone) {
+  const el = $(id);
+  el.textContent = value;
+  el.className = 'v' + (tone ? ' ' + tone : '');
+}
+function fmt(ms) { return (ms / 1000).toFixed(2) + 's'; }
+function resetRun() {
+  step('stRetrieve', 'active'); step('stGenerate', 'idle'); step('stVerify', 'idle', 'every [id] checked against retrieved chunks');
+  ['mTtft', 'mTotal', 'mValid', 'mCited'].forEach((m) => metric(m, '–'));
+  alertSlot.innerHTML = '';
+  sourcesEl.hidden = true; sourcesList.innerHTML = '';
+  answerEl.classList.remove('placeholder');
+  answerEl.textContent = '';
+  answerTag.textContent = 'running'; answerTag.className = 'tag muted';
+}
+function showAlert(msg) {
+  alertSlot.innerHTML = '';
+  const div = document.createElement('div');
+  div.className = 'alert'; div.setAttribute('role', 'alert');
+  div.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg>';
+  const span = document.createElement('span'); span.textContent = msg;
+  div.appendChild(span); alertSlot.appendChild(div);
+}
+function fail(stepId, msg) {
+  step(stepId, 'fail');
+  answerTag.textContent = 'failed'; answerTag.className = 'tag muted';
+  if (!answerEl.textContent) { answerEl.classList.add('placeholder'); answerEl.textContent = 'No answer.'; }
+  showAlert(msg);
+  runStatus.textContent = 'Query failed: ' + msg;
+}
+
+/* ---------- run ---------- */
+let busy = false;
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
   const question = questionEl.value.trim();
-  if (!question) return;
-
-  submitBtn.disabled = true;
-  statusEl.classList.remove('err');
-  statusEl.textContent = 'retrieving…';
-  answerEl.textContent = '';
-  sourcesEl.innerHTML = '';
-  sourcesSectionEl.hidden = true;
-  const startedAt = performance.now();
+  if (!question || busy) return;
+  busy = true; runBtn.disabled = true; runLabel.textContent = 'Running…';
+  resetRun();
+  runStatus.textContent = 'Retrieving passages.';
+  const t0 = performance.now();
+  let ttft = null, text = '';
+  const cursor = document.createElement('span'); cursor.className = 'cursor'; cursor.setAttribute('aria-hidden', 'true');
 
   try {
     const res = await fetch('/query', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question }),
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question }),
     });
+    if (res.status === 429) return fail('stRetrieve', 'Rate limit reached (10 queries per minute). Wait a moment and try again.');
+    if (res.status === 503) return fail('stRetrieve', 'Still indexing the corpus. Try again in a minute.');
+    if (!res.ok) return fail('stRetrieve', `Request failed (HTTP ${res.status}).`);
 
-    if (res.status === 429) {
-      statusEl.classList.add('err');
-      statusEl.textContent = 'rate limit reached, wait a moment and try again';
-      return;
-    }
-    if (res.status === 503) {
-      statusEl.classList.add('err');
-      statusEl.textContent = 'still indexing documents, try again shortly';
-      return;
-    }
-    if (!res.ok) {
-      statusEl.classList.add('err');
-      statusEl.textContent = `request failed (${res.status})`;
-      return;
-    }
+    step('stRetrieve', 'done', $('stRetrieveP').textContent);
+    step('stGenerate', 'active');
+    runStatus.textContent = 'Generating answer.';
+    answerEl.appendChild(cursor);
 
-    statusEl.textContent = 'answering…';
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
-    let buffer = '';
-
-    while (true) {
+    let buf = '';
+    for (;;) {
       const { done, value } = await reader.read();
       if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-
-      let newlineIndex;
-      while ((newlineIndex = buffer.indexOf('\n')) >= 0) {
-        const line = buffer.slice(0, newlineIndex);
-        buffer = buffer.slice(newlineIndex + 1);
+      buf += decoder.decode(value, { stream: true });
+      let nl;
+      while ((nl = buf.indexOf('\n')) >= 0) {
+        const line = buf.slice(0, nl); buf = buf.slice(nl + 1);
         if (!line.trim()) continue;
-        handleEvent(JSON.parse(line), startedAt);
+        const ev = JSON.parse(line);
+        if (ev.type === 'delta') {
+          if (ttft === null) { ttft = performance.now() - t0; metric('mTtft', fmt(ttft)); }
+          text += ev.text;
+          cursor.before(ev.text);
+        } else if (ev.type === 'error') {
+          cursor.remove();
+          return fail('stGenerate', 'The language model returned an error: ' + ev.message);
+        } else if (ev.type === 'done') {
+          cursor.remove();
+          finish(text, ev, performance.now() - t0);
+        }
       }
     }
   } catch (err) {
-    statusEl.classList.add('err');
-    statusEl.textContent = String(err);
+    cursor.remove();
+    fail('stRetrieve', 'Network error: ' + err.message);
   } finally {
-    submitBtn.disabled = false;
+    busy = false; runBtn.disabled = false; runLabel.textContent = 'Run query';
   }
 });
 
-function handleEvent(event, startedAt) {
-  if (event.type === 'delta') {
-    answerEl.textContent += event.text;
-  } else if (event.type === 'error') {
-    statusEl.classList.add('err');
-    statusEl.textContent = event.message;
-  } else if (event.type === 'done') {
-    const seconds = ((performance.now() - startedAt) / 1000).toFixed(2);
-    statusEl.classList.remove('err');
-    statusEl.textContent = `answered in ${seconds}s`;
-    renderSources(event.context, event.unsupported_citation_markers);
+function finish(text, ev, totalMs) {
+  step('stGenerate', 'done');
+  metric('mTotal', fmt(totalMs));
+  const context = ev.context || [];
+  const byId = new Map(context.map((c, i) => [c.chunk_id, { ...c, rank: i + 1 }]));
+  const bad = new Set(ev.unsupported_citation_markers || []);
+
+  // Re-render the streamed text with every [chunk_id] marker turned into a chip.
+  answerEl.textContent = '';
+  let last = 0, valid = 0, invalid = 0;
+  for (const m of text.matchAll(CITE_RE)) {
+    const id = m[1];
+    const known = byId.get(id);
+    if (!known && !bad.has(id)) continue; // plain bracketed text, not a citation
+    answerEl.append(text.slice(last, m.index));
+    answerEl.append(known ? citeChip(known) : badChip(id));
+    known ? valid++ : invalid++;
+    last = m.index + m[0].length;
   }
+  answerEl.append(text.slice(last));
+
+  const total = valid + invalid;
+  const citedCount = context.filter((c) => c.cited).length;
+  metric('mCited', `${citedCount}/${context.length}`);
+  if (total === 0) {
+    metric('mValid', 'none');
+    step('stVerify', 'done', 'answer made no citations');
+    answerTag.textContent = 'uncited'; answerTag.className = 'tag muted';
+  } else if (invalid === 0) {
+    metric('mValid', `${valid}/${total}`, 'good');
+    step('stVerify', 'done', `${valid} of ${total} citations point at retrieved chunks`);
+    answerTag.textContent = 'grounded'; answerTag.className = 'tag';
+  } else {
+    metric('mValid', `${valid}/${total}`, 'bad');
+    step('stVerify', 'fail', `${invalid} citation(s) don't match any retrieved chunk`);
+    answerTag.textContent = 'unverified citations'; answerTag.className = 'tag muted';
+    showAlert(`The answer cited ${invalid} ID(s) that weren't in the retrieved context: ${[...bad].join(', ')}. Treat those claims as unverified.`);
+  }
+  runStatus.textContent = `Answer ready in ${fmt(totalMs)}. ${valid} of ${total} citations verified.`;
+  renderSources(context);
 }
 
-function renderSources(context, unsupported) {
-  sourcesEl.innerHTML = '';
-  if (!context || context.length === 0) {
-    sourcesSectionEl.hidden = true;
-    return;
-  }
-  sourcesSectionEl.hidden = false;
-  sourcesHeadingEl.textContent = `sources (${context.length})`;
+function citeChip(chunk) {
+  const a = document.createElement('a');
+  a.className = 'cite'; a.href = '#src-' + chunk.rank;
+  a.innerHTML = '<svg aria-hidden="true"><use href="#i-file"/></svg>';
+  a.append(`p.${chunk.page}`);
+  a.setAttribute('aria-label', `Source ${chunk.rank}: ${chunk.doc_id}, page ${chunk.page}`);
+  a.title = chunk.chunk_id;
+  a.addEventListener('click', (e) => {
+    e.preventDefault();
+    const target = $('src-' + chunk.rank);
+    target.open = true;
+    target.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
+    target.classList.add('flash');
+    setTimeout(() => target.classList.remove('flash'), 1400);
+    target.querySelector('summary').focus({ preventScroll: true });
+  });
+  return a;
+}
+function badChip(id) {
+  const s = document.createElement('span');
+  s.className = 'cite bad';
+  s.innerHTML = '<svg aria-hidden="true"><use href="#i-alert"/></svg>';
+  s.append('unverified');
+  s.title = `"${id}" is not one of the retrieved chunks`;
+  s.setAttribute('aria-label', `Unverified citation ${id}`);
+  return s;
+}
 
-  for (const chunk of context) {
-    const details = document.createElement('details');
-    if (chunk.cited) details.className = 'cited';
-
-    const summary = document.createElement('summary');
-    const badge = chunk.cited ? '<span class="badge">cited</span>' : '';
-    summary.innerHTML = `${badge}<span>${chunk.doc_id}, p.${chunk.page}</span>` +
-      `<span class="meta">score ${chunk.score.toFixed(3)}</span>`;
-
-    const text = document.createElement('div');
-    text.className = 'chunk-text';
-    text.textContent = chunk.text;
-
-    details.appendChild(summary);
-    details.appendChild(text);
-    sourcesEl.appendChild(details);
-  }
-
-  if (unsupported && unsupported.length > 0) {
-    const warn = document.createElement('div');
-    warn.className = 'error';
-    warn.style.marginTop = '0.8rem';
-    warn.style.fontFamily = 'var(--mono)';
-    warn.style.fontSize = '0.75rem';
-    warn.style.gridColumn = '1 / -1';
-    warn.textContent = `warning: answer cited unrecognized id(s): ${unsupported.join(', ')}`;
-    sourcesEl.appendChild(warn);
-  }
+function renderSources(context) {
+  sourcesList.innerHTML = '';
+  if (!context.length) return;
+  const max = Math.max(...context.map((c) => c.score), 1e-9);
+  context.forEach((c, i) => {
+    const d = document.createElement('details');
+    d.className = 'src' + (c.cited ? ' cited' : '');
+    d.id = 'src-' + (i + 1);
+    const s = document.createElement('summary');
+    s.innerHTML = `
+      <span class="rank">#${i + 1}</span>
+      <span class="src-id"></span>
+      <span class="src-right">
+        <span class="score"><span class="bar"><i style="width:${Math.max(4, (c.score / max) * 100).toFixed(0)}%"></i></span>${c.score.toFixed(3)}</span>
+        <span class="tag ${c.cited ? '' : 'muted'}">${c.cited ? 'cited' : 'unused'}</span>
+        <svg class="chev" aria-hidden="true"><use href="#i-chev"/></svg>
+      </span>`;
+    const idEl = s.querySelector('.src-id');
+    idEl.append(c.doc_id + ' ');
+    const page = document.createElement('span'); page.className = 'page'; page.textContent = `· page ${c.page}`;
+    idEl.append(page);
+    const body = document.createElement('div');
+    body.className = 'src-body';
+    body.textContent = c.text;
+    d.append(s, body);
+    sourcesList.append(d);
+  });
+  sourcesMeta.textContent = `${context.length} chunks · ${context.filter((c) => c.cited).length} cited · fusion score`;
+  sourcesEl.hidden = false;
 }
 </script>
 </body>

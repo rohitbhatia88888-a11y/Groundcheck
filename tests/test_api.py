@@ -145,7 +145,7 @@ class TestHealthAndIndex:
         response = client.get("/")
         assert response.status_code == 200
         assert "text/html" in response.headers["content-type"]
-        assert "RAG Query" in response.text
+        assert "<title>Groundcheck</title>" in response.text
 
 
 class TestQuery:
